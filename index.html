@@ -555,25 +555,40 @@
     const mes = match[2].substring(0, 2);
     const tipoOrden = ot.startsWith('OTB') ? 'OTB' : 'OT';
 
+    console.log('=== GENERANDO NÚMERO DE INFORME ===');
+    console.log('OT:', ot);
+    console.log('Año:', anio, 'Mes:', mes);
+    console.log('NOM:', nom);
+    console.log('Tipo:', tipoOrden);
+    console.log('Capacitación:', esCapacitacion);
+
     // Mostrar "Generando..." mientras se obtiene el consecutivo
     numInformeField.value = 'Generando...';
     numInformeField.style.opacity = '0.6';
 
+    const url = `${SCRIPT_URL}?action=getConsecutivo&anio=${anio}&mes=${mes}&nom=${encodeURIComponent(nom)}&tipo=${tipoOrden}&cap=${esCapacitacion ? '1' : '0'}`;
+    console.log('URL de consulta:', url);
+
     // Obtener consecutivo del backend
-    jsonp(`${SCRIPT_URL}?action=getConsecutivo&anio=${anio}&mes=${mes}&nom=${nom}&tipo=${tipoOrden}&cap=${esCapacitacion ? '1' : '0'}`, (result) => {
+    jsonp(url, (result) => {
+      console.log('Respuesta del servidor:', result);
       numInformeField.style.opacity = '1';
 
       if (result && result.success && result.numeroInforme) {
+        console.log('✅ Consecutivo obtenido:', result.numeroInforme);
         numInformeField.value = result.numeroInforme;
       } else {
+        console.error('❌ Error en la respuesta:', result);
         // Fallback: generar sin consecutivo
         let numeroInforme = `EA-${anio}${mes}-${nom}`;
         if (tipoOrden === 'OTB' && esCapacitacion) {
           numeroInforme += '-CAP';
         }
         numInformeField.value = numeroInforme + '-####';
+        console.warn('Usando fallback:', numInformeField.value);
       }
     }, () => {
+      console.error('❌ Error en la llamada JSONP');
       // Error: fallback
       numInformeField.style.opacity = '1';
       let numeroInforme = `EA-${anio}${mes}-${nom}`;
@@ -581,6 +596,7 @@
         numeroInforme += '-CAP';
       }
       numInformeField.value = numeroInforme + '-####';
+      console.warn('Usando fallback por error:', numInformeField.value);
     });
   }
 
