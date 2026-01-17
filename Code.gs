@@ -309,18 +309,25 @@ function getOrdenesSafe_() {
 
 function getConsecutivoSafe_(params) {
   try {
+    Logger.log('=== getConsecutivoSafe_ llamado ===');
+    Logger.log('Parámetros recibidos: ' + JSON.stringify(params));
+
     const anio = params.anio || '';
     const mes = params.mes || '';
     const nom = params.nom || '';
     const tipo = params.tipo || 'OT'; // OT o OTB
     const cap = params.cap === '1';
 
+    Logger.log(`anio: ${anio}, mes: ${mes}, nom: ${nom}, tipo: ${tipo}, cap: ${cap}`);
+
     if (!anio || !mes || !nom) {
+      Logger.log('❌ Faltan parámetros');
       return { success: false, error: 'Faltan parámetros: anio, mes o nom' };
     }
 
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
     if (!sheet) {
+      Logger.log('❌ No existe la hoja');
       return { success: false, error: `No existe la hoja "${SHEET_NAME}".` };
     }
 
@@ -330,36 +337,54 @@ function getConsecutivoSafe_(params) {
       prefix += '-CAP';
     }
 
+    Logger.log('Prefijo construido: ' + prefix);
+
     // Buscar el último consecutivo con este prefijo
     const lastRow = sheet.getLastRow();
+    Logger.log('Última fila con datos: ' + lastRow);
+
     if (lastRow < 2) {
       // Primera vez, consecutivo 0001
+      Logger.log('✅ Primera vez, retornando 0001');
       return { success: true, numeroInforme: `${prefix}-0001` };
     }
 
     // Leer columna B (NumInforme) desde la fila 2
     const values = sheet.getRange(2, 2, lastRow - 1, 1).getDisplayValues().flat();
+    Logger.log('Total de números de informe en la hoja: ' + values.length);
+    Logger.log('Primeros 5 valores: ' + values.slice(0, 5).join(', '));
 
     // Filtrar por el prefijo y extraer consecutivos
     const regex = new RegExp(`^${escapeRegex_(prefix)}-(\\d{4})$`);
+    Logger.log('Regex para buscar: ' + regex);
+
     let maxConsecutivo = 0;
+    let matchesFound = 0;
 
     values.forEach(val => {
       const match = String(val || '').trim().match(regex);
       if (match) {
+        matchesFound++;
         const consecutivo = parseInt(match[1], 10);
+        Logger.log(`Match encontrado: ${val} -> consecutivo: ${consecutivo}`);
         if (consecutivo > maxConsecutivo) {
           maxConsecutivo = consecutivo;
         }
       }
     });
 
+    Logger.log(`Matches encontrados: ${matchesFound}, Max consecutivo: ${maxConsecutivo}`);
+
     // Siguiente consecutivo
     const siguiente = String(maxConsecutivo + 1).padStart(4, '0');
-    return { success: true, numeroInforme: `${prefix}-${siguiente}` };
+    const numeroFinal = `${prefix}-${siguiente}`;
+
+    Logger.log('✅ Número de informe generado: ' + numeroFinal);
+    return { success: true, numeroInforme: numeroFinal };
 
   } catch (err) {
-    Logger.log('Error en getConsecutivo: ' + err.message);
+    Logger.log('❌ Error en getConsecutivo: ' + err.message);
+    Logger.log('Stack: ' + err.stack);
     return { success: false, error: 'getConsecutivo error: ' + err.message };
   }
 }
