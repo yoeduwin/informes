@@ -237,9 +237,7 @@
   // =====================================================
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzoiMdL4-TVLaOlfvD7IptBJ7aGiFX0txHv7RYpxJXEkBCl0XUBGHoavN_Xf5eXzRCB/exec';
 
-  // =====================================================
   // 1) PERFIL DE DATOS (EXCEL)
-  // =====================================================
   document.getElementById('excelFile').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -263,9 +261,7 @@
     reader.readAsArrayBuffer(file);
   });
 
-  // =====================================================
   // 2) FECHAS (+15 días)
-  // =====================================================
   document.getElementById('field-fecha').addEventListener('change', function() {
     if (this.value) {
       const date = new Date(this.value);
@@ -274,9 +270,7 @@
     }
   });
 
-  // =====================================================
   // 3) TABS
-  // =====================================================
   function changeTab(tabId, e) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -285,10 +279,7 @@
     if (tabId === 'tablero') cargarTablero();
   }
 
-  // =====================================================
-  // 4) POST A APPS SCRIPT (sin leer respuesta por CORS)
-  //    + verificación posterior por JSONP para obtener link
-  // =====================================================
+  // 4) POST + confirmación por GET JSONP (busca por OT y devuelve numInforme)
   async function enviarTodo() {
     const btn = document.getElementById('btn-enviar');
     const loader = document.getElementById('main-loader');
@@ -331,20 +322,11 @@
         rd.readAsDataURL(file);
       });
 
-      // OT obligatoria
       payload.files.push(await fileToB64(otPdf, 'ORDEN_TRABAJO'));
 
-      // Hojas de Campo
-      for (const f of document.getElementById('up-campo').files) {
-        payload.files.push(await fileToB64(f, 'HOJAS_CAMPO'));
-      }
+      for (const f of document.getElementById('up-campo').files) payload.files.push(await fileToB64(f, 'HOJAS_CAMPO'));
+      for (const f of document.getElementById('up-croquis').files) payload.files.push(await fileToB64(f, 'CROQUIS'));
 
-      // Croquis
-      for (const f of document.getElementById('up-croquis').files) {
-        payload.files.push(await fileToB64(f, 'CROQUIS'));
-      }
-
-      // Envío (no-cors)
       await fetch(SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
@@ -352,8 +334,8 @@
         body: JSON.stringify(payload)
       });
 
-      // Verificación real: buscamos la OT en el tablero (JSONP) y tomamos el link
-      const found = await esperarRegistroEnTablero(ot, 6, 1200);
+      // Confirmar en tablero (por OT) y traer numInforme + link
+      const found = await esperarRegistroEnTableroPorOT(ot, 25, 2000);
 
       loader.style.display = 'none';
       status.style.display = 'block';
@@ -361,13 +343,13 @@
       if (found) {
         status.className = 'status-msg status-success';
         status.innerHTML = `✅ EXPEDIENTE REGISTRADO.<br>
+          <small><strong>Número de Informe:</strong> ${escapeHtml(found.numInforme || '')}</small><br>
           <small><a class="clean" href="${found.linkDrive}" target="_blank">📁 Abrir carpeta en Drive</a></small>`;
         limpiarFormulario();
       } else {
-        // Puede haber creado carpeta pero aún no aparece en sheet (o falló). No mentimos “éxito”.
         status.className = 'status-msg status-error';
         status.innerHTML = `⚠️ Envío realizado, pero no pude confirmar el registro en el tablero.<br>
-          <small>Revisa Apps Script → Executions para ver el error real, o entra al tablero y actualiza.</small>`;
+          <small>Entra al Tablero y actualiza, o revisa Apps Script → Executions si algo falló.</small>`;
         btn.disabled = false;
       }
 
@@ -390,50 +372,49 @@
     document.getElementById('btn-enviar').disabled = false;
   }
 
-  // =====================================================
-  // 5) TABLERO DESDE SHEETS (JSONP para evitar CORS)
-  // =====================================================
+  // 5) TABLERO (JSONP)
   function cargarTablero() {
     const box = document.getElementById('tablero-box');
     box.innerHTML = `<p style="text-align:center; padding:20px;">Cargando datos desde Google Sheets...</p>`;
 
     jsonp(`${SCRIPT_URL}?action=getTablero`, (result) => {
-      try {
-        if (result && result.success) {
-          let html = `<table><thead><tr>
-            <th>OT</th><th>Cliente</th><th>NOM</th><th>Entrega</th><th>Estatus</th><th>Drive</th>
-          </tr></thead><tbody>`;
-
-          result.data.forEach(r => {
-            html += `
-              <tr>
-                <td><strong>${escapeHtml(r.numInforme || '')}</strong></td>
-                <td>${escapeHtml(r.cliente || '')}</td>
-                <td>${escapeHtml(r.nom || '')}</td>
-                <td>${escapeHtml(r.fechaEntrega || '')}</td>
-                <td><span class="badge badge-process">${escapeHtml(r.estatus || '')}</span></td>
-                <td><a class="clean" href="${r.linkDrive || '#'}" target="_blank">📁 Abrir</a></td>
-              </tr>`;
-          });
-
-          box.innerHTML = html + `</tbody></table>`;
-        } else {
-          box.innerHTML = `<p style="color:red; text-align:center;">No se pudieron cargar datos.</p>`;
-        }
-      } catch (e) {
-        box.innerHTML = `<p style="color:red; text-align:center;">Error al renderizar datos.</p>`;
+      if (!(result && result.success)) {
+        box.innerHTML = `<p style="color:red; text-align:center;">${escapeHtml((result && result.error) ? result.error : 'Error al cargar.')}</p>`;
+        return;
       }
+
+      let html = `<table><thead><tr>
+        <th>Número Informe</th>
+        <th>OT</th>
+        <th>Cliente</th>
+        <th>NOM</th>
+        <th>Entrega</th>
+        <th>Estatus</th>
+        <th>Drive</th>
+      </tr></thead><tbody>`;
+
+      result.data.forEach(r => {
+        html += `
+          <tr>
+            <td><strong>${escapeHtml(r.numInforme || '')}</strong></td>
+            <td>${escapeHtml(r.ot || '')}</td>
+            <td>${escapeHtml(r.cliente || '')}</td>
+            <td>${escapeHtml(r.nom || '')}</td>
+            <td>${escapeHtml(r.fechaEntrega || '')}</td>
+            <td><span class="badge badge-process">${escapeHtml(r.estatus || '')}</span></td>
+            <td><a class="clean" href="${r.linkDrive || '#'}" target="_blank">📁 Abrir</a></td>
+          </tr>`;
+      });
+
+      box.innerHTML = html + `</tbody></table>`;
     }, () => {
       box.innerHTML = `<p style="color:red; text-align:center;">Error al conectar con la base de datos.</p>`;
     });
   }
 
-  // =====================================================
   // JSONP helper
-  // =====================================================
   function jsonp(url, onSuccess, onError) {
     const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-
     const script = document.createElement('script');
     const sep = url.includes('?') ? '&' : '?';
     script.src = `${url}${sep}callback=${cbName}`;
@@ -459,7 +440,6 @@
 
     document.body.appendChild(script);
 
-    // timeout
     setTimeout(() => {
       if (!done) {
         cleanup();
@@ -468,19 +448,17 @@
     }, 15000);
   }
 
-  // =====================================================
-  // Verificación post-POST: polling al tablero buscando OT
-  // =====================================================
-  function esperarRegistroEnTablero(ot, intentos = 6, esperaMs = 1200) {
+  function esperarRegistroEnTableroPorOT(ot, intentos = 25, esperaMs = 2000) {
+    const norm = (s) => String(s || '').trim().toUpperCase();
+
     return new Promise((resolve) => {
       const tick = (n) => {
         jsonp(`${SCRIPT_URL}?action=getTablero`, (result) => {
           const rows = (result && result.success && Array.isArray(result.data)) ? result.data : [];
-          const found = rows.find(r => String(r.numInforme || '').trim() === ot);
-
+          const found = rows.find(r => norm(r.ot) === norm(ot));
           if (found) return resolve(found);
-          if (n <= 1) return resolve(null);
 
+          if (n <= 1) return resolve(null);
           setTimeout(() => tick(n - 1), esperaMs);
         }, () => {
           if (n <= 1) return resolve(null);
@@ -504,5 +482,3 @@
 </script>
 </body>
 </html>
-
-
