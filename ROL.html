@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Gestión de Expedientes - Ejecutiva Ambiental</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #1e5a3e;
+      --secondary: #2d7a4f;
+      --dark: #2c3e50;
+      --light: #f8f9fa;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #e9ecef;
+      color: #333;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 30px auto;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 25px 35px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 22px; letter-spacing: 1px; font-weight: 700; }
+    .header p { font-size: 11px; opacity: 0.9; text-transform: uppercase; }
+
+    .tabs { display: flex; background: var(--dark); }
+    .tab {
+      flex: 1; padding: 15px; color: white; border: none;
+      background: transparent; cursor: pointer; font-weight: bold;
+      transition: 0.3s; border-bottom: 3px solid transparent;
+      font-size: 12px;
+    }
+    .tab:hover { background: rgba(255,255,255,0.1); }
+    .tab.active { background: white; color: var(--primary); border-bottom: 3px solid var(--primary); }
+
+    .content { padding: 30px; min-height: 600px; }
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .card {
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      background: white;
+    }
+    .card-title {
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 15px;
+      border-bottom: 2px solid var(--light);
+      padding-bottom: 8px;
+      text-transform: uppercase;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group.full { grid-column: 1 / -1; }
+
+    label { font-weight: 700; margin-bottom: 5px; font-size: 11px; color: #495057; text-transform: uppercase; }
+    input, select, textarea {
+      padding: 10px; border: 1px solid #ced4da; border-radius: 5px;
+      background: #fff; font-size: 13px; transition: 0.2s;
+    }
+    input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(30,90,62,0.1); }
+
+    .file-zone {
+      border: 2px dashed #ced4da;
+      padding: 14px;
+      text-align: center;
+      border-radius: 8px;
+      background: #f8f9fa;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .file-zone:hover { border-color: var(--primary); background: #eef7f2; }
+    .file-zone input[type="file"] { width: 100%; }
+
+    .btn {
+      padding: 12px 25px; border: none; border-radius: 5px;
+      cursor: pointer; font-weight: bold; text-transform: uppercase;
+      font-size: 13px; transition: 0.3s;
+    }
+    .btn-submit {
+      background: var(--primary); color: white; width: 100%;
+      margin-top: 10px; padding: 18px; font-size: 15px;
+    }
+    .btn-submit:hover { background: var(--secondary); transform: translateY(-1px); }
+    .btn-submit:disabled { background: #adb5bd; cursor: not-allowed; transform: none; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+    thead { background: #f8f9fa; }
+    th { color: var(--dark); font-size: 11px; text-transform: uppercase; }
+    tr:hover { background: #f1f3f5; }
+
+    .badge { padding: 5px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; }
+    .badge-process { background: #fff3cd; color: #856404; }
+
+    .loader { display: none; text-align: center; padding: 20px; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--primary); border-radius: 50%;
+      animation: spin 1s linear infinite; margin: 0 auto 10px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .status-msg { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-weight: bold; text-align: center; }
+    .status-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .status-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .muted { font-size: 11px; opacity: 0.85; font-weight: 600; }
+    a.clean { color: var(--primary); text-decoration: none; font-weight: 700; }
+  </style>
+</head>
+
+<body>
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>EJECUTIVA AMBIENTAL</h1>
+      <p>Ingeniería, Seguridad e Higiene Industrial</p>
+    </div>
+    <div id="live-clock" style="font-size: 14px; font-weight: bold;"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="changeTab('nuevo', event)">➕ NUEVO EXPEDIENTE</button>
+    <button class="tab" onclick="changeTab('tablero', event)">📊 TABLERO DE INFORMES</button>
+  </div>
+
+  <div class="content">
+    <div id="section-nuevo" class="section active">
+
+      <div class="card" style="border-left: 5px solid #217346; background: #f0f7f3;">
+        <div class="card-title">📗 PASO 1: IMPORTAR PERFIL DE DATOS</div>
+        <div class="form-grid" style="grid-template-columns: 1fr auto;">
+          <input type="file" id="excelFile" accept=".xlsx, .xls">
+          <p class="muted">El sistema mapeará automáticamente celdas D3, D5, D7, I7 y D11.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📝 PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO</div>
+        <div class="form-grid">
+          <div class="form-group"><label>N° Orden de Trabajo (OT)</label><input type="text" id="field-ot" placeholder="Ej: OT25-0106-001"></div>
+
+          <div class="form-group"><label>NOM / Servicio</label>
+            <select id="field-nom">
+              <option value="">Seleccione...</option>
+              <option value="011">NOM-011 (Ruido)</option>
+              <option value="015">NOM-015 (Térmicas)</option>
+              <option value="022">NOM-022 (Estática)</option>
+              <option value="024">NOM-024 (Vibraciones)</option>
+              <option value="025">NOM-025 (Iluminación)</option>
+              <option value="PC">Protección Civil</option>
+              <option value="MA">Medio Ambiente</option>
+            </select>
+          </div>
+
+          <div class="form-group"><label>Empresa / Razón Social (D5)</label><input type="text" id="field-cliente"></div>
+          <div class="form-group"><label>Solicitante (D3)</label><input type="text" id="field-solicitante"></div>
+          <div class="form-group"><label>RFC (D7)</label><input type="text" id="field-rfc"></div>
+          <div class="form-group"><label>Teléfono (I7)</label><input type="text" id="field-tel"></div>
+          <div class="form-group full"><label>Dirección del Centro de Trabajo (D11)</label><input type="text" id="field-dir"></div>
+
+          <div class="form-group"><label>Fecha de Servicio</label><input type="date" id="field-fecha"></div>
+          <div class="form-group"><label>Fecha Compromiso de Entrega</label><input type="date" id="field-entrega" readonly style="background:#e9ecef;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📂 PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Orden de Trabajo (PDF)</label>
+            <div class="file-zone"><input type="file" id="up-ot" accept=".pdf"></div>
+          </div>
+          <div class="form-group">
+            <label>Hojas de Campo</label>
+            <div class="file-zone"><input type="file" id="up-campo" multiple></div>
+          </div>
+          <div class="form-group">
+            <label>Croquis / Planos</label>
+            <div class="file-zone"><input type="file" id="up-croquis" multiple></div>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-enviar" class="btn btn-submit" onclick="enviarTodo()">🚀 GENERAR EXPEDIENTE EN DRIVE</button>
+
+      <div id="main-loader" class="loader">
+        <div class="spinner"></div>
+        <p>Subiendo archivos y registrando en Sheets...</p>
+      </div>
+      <div id="main-status" class="status-msg"></div>
+    </div>
+
+    <div id="section-tablero" class="section">
+      <div class="card">
+        <div class="card-title">🔍 EXPEDIENTES RECIENTES EN "INFORMES"</div>
+        <div id="tablero-box" style="overflow-x:auto;">
+          <p style="text-align:center; padding:20px;">Cargando datos desde Google Sheets...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // =====================================================
+  // CONFIG: PEGA TU URL /exec DEL WEB APP (DESPLIEGUE)
+  // =====================================================
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzffUTWpWZMZL4I71Tk7V8fJhMs-gaSKL2zRm3GdVhe4QFxggr97j3Xq5DHMB0kXmsf/exec';
+
+  // =====================================================
+  // 1) PERFIL DE DATOS (EXCEL)
+  // =====================================================
+  document.getElementById('excelFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      const data = new Uint8Array(event.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+
+      const getVal = (cell) => ws[cell] ? ws[cell].v : '';
+
+      document.getElementById('field-solicitante').value = getVal('D3');
+      document.getElementById('field-cliente').value = getVal('D5');
+      document.getElementById('field-rfc').value = getVal('D7');
+      document.getElementById('field-tel').value = getVal('I7');
+      document.getElementById('field-dir').value = getVal('D11');
+
+      alert("✅ Datos del perfil cargados correctamente.");
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  // =====================================================
+  // 2) FECHAS (+15 días)
+  // =====================================================
+  document.getElementById('field-fecha').addEventListener('change', function() {
+    if (this.value) {
+      const date = new Date(this.value);
+      date.setDate(date.getDate() + 15);
+      document.getElementById('field-entrega').value = date.toISOString().split('T')[0];
+    }
+  });
+
+  // =====================================================
+  // 3) TABS
+  // =====================================================
+  function changeTab(tabId, e) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    e.target.classList.add('active');
+    document.getElementById('section-' + tabId).classList.add('active');
+    if (tabId === 'tablero') cargarTablero();
+  }
+
+  // =====================================================
+  // 4) POST A APPS SCRIPT (sin leer respuesta por CORS)
+  //    + verificación posterior por JSONP para obtener link
+  // =====================================================
+  async function enviarTodo() {
+    const btn = document.getElementById('btn-enviar');
+    const loader = document.getElementById('main-loader');
+    const status = document.getElementById('main-status');
+
+    const ot = document.getElementById('field-ot').value.trim();
+    const otPdf = document.getElementById('up-ot').files[0];
+
+    if (!ot || !otPdf) {
+      alert("⚠️ Por favor ingresa el número de OT y adjunta el PDF de la Orden.");
+      return;
+    }
+
+    btn.disabled = true;
+    loader.style.display = 'block';
+    status.style.display = 'none';
+
+    try {
+      const payload = {
+        action: 'createExpediente',
+        data: {
+          ot,
+          cliente: document.getElementById('field-cliente').value.trim(),
+          nom: document.getElementById('field-nom').value,
+          fecha: document.getElementById('field-fecha').value,
+          entrega: document.getElementById('field-entrega').value
+        },
+        files: []
+      };
+
+      const fileToB64 = (file, cat) => new Promise((resolve, reject) => {
+        const rd = new FileReader();
+        rd.onerror = () => reject(new Error('No se pudo leer el archivo: ' + file.name));
+        rd.onload = () => resolve({
+          name: file.name,
+          type: file.type,
+          content: rd.result.split(',')[1],
+          category: cat
+        });
+        rd.readAsDataURL(file);
+      });
+
+      // OT obligatoria
+      payload.files.push(await fileToB64(otPdf, 'ORDEN_TRABAJO'));
+
+      // Hojas de Campo
+      for (const f of document.getElementById('up-campo').files) {
+        payload.files.push(await fileToB64(f, 'HOJAS_CAMPO'));
+      }
+
+      // Croquis
+      for (const f of document.getElementById('up-croquis').files) {
+        payload.files.push(await fileToB64(f, 'CROQUIS'));
+      }
+
+      // Envío (no-cors)
+      await fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      // Verificación real: buscamos la OT en el tablero (JSONP) y tomamos el link
+      const found = await esperarRegistroEnTablero(ot, 6, 1200);
+
+      loader.style.display = 'none';
+      status.style.display = 'block';
+
+      if (found) {
+        status.className = 'status-msg status-success';
+        status.innerHTML = `✅ EXPEDIENTE REGISTRADO.<br>
+          <small><a class="clean" href="${found.linkDrive}" target="_blank">📁 Abrir carpeta en Drive</a></small>`;
+        limpiarFormulario();
+      } else {
+        // Puede haber creado carpeta pero aún no aparece en sheet (o falló). No mentimos “éxito”.
+        status.className = 'status-msg status-error';
+        status.innerHTML = `⚠️ Envío realizado, pero no pude confirmar el registro en el tablero.<br>
+          <small>Revisa Apps Script → Executions para ver el error real, o entra al tablero y actualiza.</small>`;
+        btn.disabled = false;
+      }
+
+    } catch (err) {
+      console.error(err);
+      loader.style.display = 'none';
+      status.style.display = 'block';
+      status.className = 'status-msg status-error';
+      status.innerHTML = `❌ Error: ${err.message}`;
+      btn.disabled = false;
+    }
+  }
+
+  function limpiarFormulario() {
+    document.querySelectorAll('input').forEach(i => {
+      if (i.type === 'file') i.value = '';
+      else i.value = '';
+    });
+    document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+    document.getElementById('btn-enviar').disabled = false;
+  }
+
+  // =====================================================
+  // 5) TABLERO DESDE SHEETS (JSONP para evitar CORS)
+  // =====================================================
+  function cargarTablero() {
+    const box = document.getElementById('tablero-box');
+    box.innerHTML = `<p style="text-align:center; padding:20px;">Cargando datos desde Google Sheets...</p>`;
+
+    jsonp(`${SCRIPT_URL}?action=getTablero`, (result) => {
+      try {
+        if (result && result.success) {
+          let html = `<table><thead><tr>
+            <th>OT</th><th>Cliente</th><th>NOM</th><th>Entrega</th><th>Estatus</th><th>Drive</th>
+          </tr></thead><tbody>`;
+
+          result.data.forEach(r => {
+            html += `
+              <tr>
+                <td><strong>${escapeHtml(r.numInforme || '')}</strong></td>
+                <td>${escapeHtml(r.cliente || '')}</td>
+                <td>${escapeHtml(r.nom || '')}</td>
+                <td>${escapeHtml(r.fechaEntrega || '')}</td>
+                <td><span class="badge badge-process">${escapeHtml(r.estatus || '')}</span></td>
+                <td><a class="clean" href="${r.linkDrive || '#'}" target="_blank">📁 Abrir</a></td>
+              </tr>`;
+          });
+
+          box.innerHTML = html + `</tbody></table>`;
+        } else {
+          box.innerHTML = `<p style="color:red; text-align:center;">No se pudieron cargar datos.</p>`;
+        }
+      } catch (e) {
+        box.innerHTML = `<p style="color:red; text-align:center;">Error al renderizar datos.</p>`;
+      }
+    }, () => {
+      box.innerHTML = `<p style="color:red; text-align:center;">Error al conectar con la base de datos.</p>`;
+    });
+  }
+
+  // =====================================================
+  // JSONP helper
+  // =====================================================
+  function jsonp(url, onSuccess, onError) {
+    const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+
+    const script = document.createElement('script');
+    const sep = url.includes('?') ? '&' : '?';
+    script.src = `${url}${sep}callback=${cbName}`;
+
+    let done = false;
+
+    window[cbName] = (data) => {
+      done = true;
+      cleanup();
+      onSuccess(data);
+    };
+
+    script.onerror = () => {
+      if (done) return;
+      cleanup();
+      if (onError) onError();
+    };
+
+    const cleanup = () => {
+      try { delete window[cbName]; } catch(_) { window[cbName] = undefined; }
+      if (script && script.parentNode) script.parentNode.removeChild(script);
+    };
+
+    document.body.appendChild(script);
+
+    // timeout
+    setTimeout(() => {
+      if (!done) {
+        cleanup();
+        if (onError) onError();
+      }
+    }, 15000);
+  }
+
+  // =====================================================
+  // Verificación post-POST: polling al tablero buscando OT
+  // =====================================================
+  function esperarRegistroEnTablero(ot, intentos = 6, esperaMs = 1200) {
+    return new Promise((resolve) => {
+      const tick = (n) => {
+        jsonp(`${SCRIPT_URL}?action=getTablero`, (result) => {
+          const rows = (result && result.success && Array.isArray(result.data)) ? result.data : [];
+          const found = rows.find(r => String(r.numInforme || '').trim() === ot);
+
+          if (found) return resolve(found);
+          if (n <= 1) return resolve(null);
+
+          setTimeout(() => tick(n - 1), esperaMs);
+        }, () => {
+          if (n <= 1) return resolve(null);
+          setTimeout(() => tick(n - 1), esperaMs);
+        });
+      };
+      tick(intentos);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (m) => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[m]));
+  }
+
+  // Reloj
+  setInterval(() => {
+    document.getElementById('live-clock').textContent = new Date().toLocaleString('es-MX');
+  }, 1000);
+</script>
+</body>
+</html>
