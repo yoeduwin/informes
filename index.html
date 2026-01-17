@@ -432,35 +432,13 @@
   document.addEventListener('DOMContentLoaded', cargarOrdenesDisponibles);
 
   // Catálogos de NOMs según tipo de orden
-  const NOMS_OT = [
-    { code: '011', name: 'NOM-011 (Ruido)' },
-    { code: '015', name: 'NOM-015 (Térmicas)' },
-    { code: '022', name: 'NOM-022 (Estática)' },
-    { code: '024', name: 'NOM-024 (Vibraciones)' },
-    { code: '025', name: 'NOM-025 (Iluminación)' },
-    { code: '081', name: 'NOM-081 (Otros)' }
-  ];
+  const NOMS_OT = ['011', '015', '022', '024', '025', '081'];
 
   const NOMS_OTB = [
-    { code: '001', name: 'NOM-001' },
-    { code: '002', name: 'NOM-002' },
-    { code: '004', name: 'NOM-004' },
-    { code: '005', name: 'NOM-005' },
-    { code: '006', name: 'NOM-006' },
-    { code: '009', name: 'NOM-009' },
-    { code: '017', name: 'NOM-017' },
-    { code: '018', name: 'NOM-018' },
-    { code: '019', name: 'NOM-019' },
-    { code: '020', name: 'NOM-020' },
-    { code: '026', name: 'NOM-026' },
-    { code: '027', name: 'NOM-027' },
-    { code: '029', name: 'NOM-029' },
-    { code: '030', name: 'NOM-030' },
-    { code: '033', name: 'NOM-033' },
-    { code: '035', name: 'NOM-035' },
-    { code: '036', name: 'NOM-036' },
-    { code: 'LEY-SILLA', name: 'LEY SILLA' },
-    { code: 'PIPC', name: 'PIPC' }
+    '001', '002', '004', '005', '006', '009',
+    '017', '018', '019', '020', '026', '027',
+    '029', '030', '033', '035', '036',
+    'LEY-SILLA', 'PIPC'
   ];
 
   // 1) PERFIL DE DATOS (EXCEL)
@@ -515,6 +493,8 @@
     const datalist = document.getElementById('nom-list');
     const nomField = document.getElementById('field-nom');
 
+    console.log('Detectando tipo de orden:', ot);
+
     // Detectar tipo
     let tipoOrden = '';
     let noms = [];
@@ -524,24 +504,28 @@
       tipoOrdenField.value = 'OTB (Serie Independiente)';
       tipoOrdenField.style.color = '#0d6efd';
       noms = NOMS_OTB;
+      console.log('Tipo detectado: OTB, NOMs disponibles:', noms);
     } else if (ot.startsWith('OT')) {
       tipoOrden = 'OT';
       tipoOrdenField.value = 'OT (Serie Regular)';
       tipoOrdenField.style.color = 'var(--primary)';
       noms = NOMS_OT;
+      console.log('Tipo detectado: OT, NOMs disponibles:', noms);
     } else {
       tipoOrdenField.value = '';
       noms = [];
+      console.log('Tipo no detectado');
     }
 
     // Actualizar datalist
     datalist.innerHTML = '';
     noms.forEach(nom => {
       const option = document.createElement('option');
-      option.value = nom.code;
-      option.textContent = nom.name;
+      option.value = nom;
       datalist.appendChild(option);
     });
+
+    console.log('Datalist actualizado con', noms.length, 'opciones');
 
     // Limpiar campo NOM si cambia el tipo
     nomField.value = '';
