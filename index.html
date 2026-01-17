@@ -14,105 +14,123 @@
       --secondary: #2d7a4f;
       --dark: #2c3e50;
       --light: #f8f9fa;
+      --accent: #217346;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #e9ecef;
+      background: #f5f6fa;
       color: #333;
       font-size: 13px;
-      line-height: 1.6;
+      line-height: 1.5;
     }
 
     .container {
-      max-width: 1100px;
-      margin: 30px auto;
+      max-width: 1200px;
+      margin: 20px auto;
       background: white;
-      border-radius: 10px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
       overflow: hidden;
     }
 
     .header {
       background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: white;
-      padding: 25px 35px;
+      padding: 20px 30px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .header h1 { font-size: 22px; letter-spacing: 1px; font-weight: 700; }
-    .header p { font-size: 11px; opacity: 0.9; text-transform: uppercase; }
+    .header h1 { font-size: 20px; letter-spacing: 0.5px; font-weight: 600; }
+    .header p { font-size: 11px; opacity: 0.9; }
 
     .tabs { display: flex; background: var(--dark); }
     .tab {
-      flex: 1; padding: 15px; color: white; border: none;
-      background: transparent; cursor: pointer; font-weight: bold;
-      transition: 0.3s; border-bottom: 3px solid transparent;
-      font-size: 12px;
+      flex: 1; padding: 12px; color: white; border: none;
+      background: transparent; cursor: pointer; font-weight: 600;
+      transition: 0.2s; border-bottom: 3px solid transparent;
+      font-size: 11px; text-transform: uppercase;
     }
     .tab:hover { background: rgba(255,255,255,0.1); }
-    .tab.active { background: white; color: var(--primary); border-bottom: 3px solid var(--primary); }
+    .tab.active { background: white; color: var(--primary); border-bottom: 3px solid var(--accent); }
 
-    .content { padding: 30px; min-height: 600px; }
+    .content { padding: 20px; min-height: 500px; }
     .section { display: none; }
     .section.active { display: block; }
 
     .card {
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
       background: white;
     }
     .card-title {
-      font-weight: bold;
-      color: var(--primary);
-      margin-bottom: 15px;
-      border-bottom: 2px solid var(--light);
-      padding-bottom: 8px;
+      font-weight: 600;
+      color: var(--dark);
+      margin-bottom: 12px;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 6px;
       text-transform: uppercase;
-      font-size: 11px;
+      font-size: 10px;
+      letter-spacing: 0.5px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
     .form-group { display: flex; flex-direction: column; }
     .form-group.full { grid-column: 1 / -1; }
 
-    label { font-weight: 700; margin-bottom: 5px; font-size: 11px; color: #495057; text-transform: uppercase; }
-    input, select, textarea {
-      padding: 10px; border: 1px solid #ced4da; border-radius: 5px;
-      background: #fff; font-size: 13px; transition: 0.2s;
+    label {
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 10px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
     }
-    input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(30,90,62,0.1); }
+    input, select, textarea {
+      padding: 8px 10px;
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 13px;
+      transition: 0.2s;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(33,115,70,0.1);
+    }
 
     .file-zone {
-      border: 2px dashed #ced4da;
-      padding: 14px;
+      border: 2px dashed #d0d0d0;
+      padding: 10px;
       text-align: center;
-      border-radius: 8px;
-      background: #f8f9fa;
+      border-radius: 4px;
+      background: #fafafa;
       cursor: pointer;
-      transition: 0.3s;
+      transition: 0.2s;
     }
-    .file-zone:hover { border-color: var(--primary); background: #eef7f2; }
+    .file-zone:hover { border-color: var(--accent); background: #f0f7f2; }
     .file-zone input[type="file"] { width: 100%; }
 
     .btn {
-      padding: 12px 25px; border: none; border-radius: 5px;
-      cursor: pointer; font-weight: bold; text-transform: uppercase;
-      font-size: 13px; transition: 0.3s;
+      padding: 10px 20px; border: none; border-radius: 4px;
+      cursor: pointer; font-weight: 600; text-transform: uppercase;
+      font-size: 11px; transition: 0.2s; letter-spacing: 0.5px;
     }
     .btn-submit {
-      background: var(--primary); color: white; width: 100%;
-      margin-top: 10px; padding: 18px; font-size: 15px;
+      background: var(--accent); color: white; width: 100%;
+      margin-top: 8px; padding: 14px; font-size: 13px;
+      box-shadow: 0 2px 8px rgba(33,115,70,0.3);
     }
-    .btn-submit:hover { background: var(--secondary); transform: translateY(-1px); }
-    .btn-submit:disabled { background: #adb5bd; cursor: not-allowed; transform: none; }
+    .btn-submit:hover { background: var(--secondary); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(33,115,70,0.4); }
+    .btn-submit:disabled { background: #adb5bd; cursor: not-allowed; transform: none; box-shadow: none; }
 
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
@@ -235,15 +253,15 @@
   <div class="content">
     <div id="section-nuevo" class="section active">
 
-      <div class="card" style="border-left: 5px solid #217346; background: #f0f7f3;">
-        <div class="card-title">📗 PASO 1: IMPORTAR PERFIL DE DATOS</div>
+      <div class="card" style="border-left: 3px solid var(--accent);">
+        <div class="card-title">📗 PASO 1: Perfil de Datos</div>
         <div class="form-grid">
-          <div class="form-group full">
-            <label>Seleccionar Perfil de Datos (Excel)</label>
-            <div class="file-zone">
-              <input type="file" id="excelFile" accept=".xlsx, .xls">
-            </div>
-            <p class="muted" style="margin-top: 8px;">💡 Este archivo se adjuntará automáticamente al expediente.</p>
+          <div class="form-group">
+            <label>Archivo Excel del Cliente *</label>
+            <input type="file" id="excelFile" accept=".xlsx, .xls" style="font-size: 11px;">
+          </div>
+          <div class="form-group" style="display: flex; align-items: end;">
+            <p class="muted" id="info-perfil-quick" style="font-size: 10px; color: #856404; margin: 0;">⚠️ Sin cargar</p>
           </div>
         </div>
       </div>
@@ -263,19 +281,12 @@
             <input type="text" id="field-tipo-orden" readonly style="background:#e9ecef; font-weight: bold; color: var(--primary);" placeholder="Se detectará automáticamente">
           </div>
 
-          <div class="form-group"><label>NOM / Servicio *</label>
-            <select id="field-nom" required>
-              <option value="">Seleccione...</option>
-              <option value="011">NOM-011 (Ruido)</option>
-              <option value="015">NOM-015 (Térmicas)</option>
-              <option value="022">NOM-022 (Estática)</option>
-              <option value="024">NOM-024 (Vibraciones)</option>
-              <option value="025">NOM-025 (Iluminación)</option>
-              <option value="081">NOM-081 (Otros)</option>
-              <option value="031">NOM-031 (Otros)</option>
-              <option value="PC">Protección Civil</option>
-              <option value="MA">Medio Ambiente</option>
-            </select>
+          <div class="form-group">
+            <label>NOM / Servicio *</label>
+            <input type="text" id="field-nom" list="nom-list" required placeholder="Escribe o selecciona..." autocomplete="off">
+            <datalist id="nom-list">
+              <!-- Se llena dinámicamente según OT/OTB -->
+            </datalist>
           </div>
 
           <div class="form-group">
@@ -420,16 +431,56 @@
   // Cargar órdenes al cargar la página
   document.addEventListener('DOMContentLoaded', cargarOrdenesDisponibles);
 
+  // Catálogos de NOMs según tipo de orden
+  const NOMS_OT = [
+    { code: '011', name: 'NOM-011 (Ruido)' },
+    { code: '015', name: 'NOM-015 (Térmicas)' },
+    { code: '022', name: 'NOM-022 (Estática)' },
+    { code: '024', name: 'NOM-024 (Vibraciones)' },
+    { code: '025', name: 'NOM-025 (Iluminación)' },
+    { code: '081', name: 'NOM-081 (Otros)' }
+  ];
+
+  const NOMS_OTB = [
+    { code: '001', name: 'NOM-001' },
+    { code: '002', name: 'NOM-002' },
+    { code: '004', name: 'NOM-004' },
+    { code: '005', name: 'NOM-005' },
+    { code: '006', name: 'NOM-006' },
+    { code: '009', name: 'NOM-009' },
+    { code: '017', name: 'NOM-017' },
+    { code: '018', name: 'NOM-018' },
+    { code: '019', name: 'NOM-019' },
+    { code: '020', name: 'NOM-020' },
+    { code: '026', name: 'NOM-026' },
+    { code: '027', name: 'NOM-027' },
+    { code: '029', name: 'NOM-029' },
+    { code: '030', name: 'NOM-030' },
+    { code: '033', name: 'NOM-033' },
+    { code: '035', name: 'NOM-035' },
+    { code: '036', name: 'NOM-036' },
+    { code: 'LEY-SILLA', name: 'LEY SILLA' },
+    { code: 'PIPC', name: 'PIPC' }
+  ];
+
   // 1) PERFIL DE DATOS (EXCEL)
   document.getElementById('excelFile').addEventListener('change', function(e) {
     const file = e.target.files[0];
+    const infoQuick = document.getElementById('info-perfil-quick');
+    const infoPerfil = document.getElementById('info-perfil');
+
     if (!file) {
       perfilDataFile = null;
-      document.getElementById('info-perfil').innerHTML = '⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel en el PASO 1.';
+      infoQuick.innerHTML = '⚠️ Sin cargar';
+      infoQuick.style.color = '#856404';
+      if (infoPerfil) {
+        infoPerfil.innerHTML = '⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel en el PASO 1.';
+        infoPerfil.style.color = '#856404';
+      }
       return;
     }
 
-    perfilDataFile = file; // Guardar el archivo
+    perfilDataFile = file;
 
     const reader = new FileReader();
     reader.onload = function(event) {
@@ -445,36 +496,62 @@
       document.getElementById('field-tel').value = getVal('I7');
       document.getElementById('field-dir').value = getVal('D11');
 
-      // Actualizar info del perfil
-      document.getElementById('info-perfil').innerHTML = `✅ Perfil cargado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB)`;
-      document.getElementById('info-perfil').style.color = '#0f5132';
+      // Actualizar indicadores
+      infoQuick.innerHTML = `✅ ${file.name.substring(0, 20)}...`;
+      infoQuick.style.color = '#0f5132';
 
-      alert("✅ Datos del perfil cargados correctamente.");
+      if (infoPerfil) {
+        infoPerfil.innerHTML = `✅ Perfil cargado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB)`;
+        infoPerfil.style.color = '#0f5132';
+      }
     };
     reader.readAsArrayBuffer(file);
   });
 
-  // 2) DETECCIÓN DE TIPO DE ORDEN Y GENERACIÓN DE NÚMERO DE INFORME
+  // 2) DETECCIÓN DE TIPO DE ORDEN Y ACTUALIZACIÓN DE NOMs
   function detectarTipoOrden() {
     const ot = document.getElementById('field-ot').value.trim().toUpperCase();
     const tipoOrdenField = document.getElementById('field-tipo-orden');
+    const datalist = document.getElementById('nom-list');
+    const nomField = document.getElementById('field-nom');
+
+    // Detectar tipo
+    let tipoOrden = '';
+    let noms = [];
 
     if (ot.startsWith('OTB')) {
+      tipoOrden = 'OTB';
       tipoOrdenField.value = 'OTB (Serie Independiente)';
       tipoOrdenField.style.color = '#0d6efd';
+      noms = NOMS_OTB;
     } else if (ot.startsWith('OT')) {
+      tipoOrden = 'OT';
       tipoOrdenField.value = 'OT (Serie Regular)';
       tipoOrdenField.style.color = 'var(--primary)';
+      noms = NOMS_OT;
     } else {
       tipoOrdenField.value = '';
+      noms = [];
     }
+
+    // Actualizar datalist
+    datalist.innerHTML = '';
+    noms.forEach(nom => {
+      const option = document.createElement('option');
+      option.value = nom.code;
+      option.textContent = nom.name;
+      datalist.appendChild(option);
+    });
+
+    // Limpiar campo NOM si cambia el tipo
+    nomField.value = '';
 
     generarNumeroInforme();
   }
 
   function generarNumeroInforme() {
     const ot = document.getElementById('field-ot').value.trim().toUpperCase();
-    const nom = document.getElementById('field-nom').value;
+    const nom = document.getElementById('field-nom').value.trim();
     const esCapacitacion = document.getElementById('field-capacitacion').checked;
     const numInformeField = document.getElementById('field-num-informe');
 
@@ -492,18 +569,39 @@
 
     const anio = match[1];
     const mes = match[2].substring(0, 2);
+    const tipoOrden = ot.startsWith('OTB') ? 'OTB' : 'OT';
 
-    // Formato: EA-AAMM-NOM o EA-AAMM-NOM-CAP
-    let numeroInforme = `EA-${anio}${mes}-${nom}`;
+    // Mostrar "Generando..." mientras se obtiene el consecutivo
+    numInformeField.value = 'Generando...';
+    numInformeField.style.opacity = '0.6';
 
-    if (ot.startsWith('OTB') && esCapacitacion) {
-      numeroInforme += '-CAP';
-    }
+    // Obtener consecutivo del backend
+    jsonp(`${SCRIPT_URL}?action=getConsecutivo&anio=${anio}&mes=${mes}&nom=${nom}&tipo=${tipoOrden}&cap=${esCapacitacion ? '1' : '0'}`, (result) => {
+      numInformeField.style.opacity = '1';
 
-    numInformeField.value = numeroInforme;
+      if (result && result.success && result.numeroInforme) {
+        numInformeField.value = result.numeroInforme;
+      } else {
+        // Fallback: generar sin consecutivo
+        let numeroInforme = `EA-${anio}${mes}-${nom}`;
+        if (tipoOrden === 'OTB' && esCapacitacion) {
+          numeroInforme += '-CAP';
+        }
+        numInformeField.value = numeroInforme + '-####';
+      }
+    }, () => {
+      // Error: fallback
+      numInformeField.style.opacity = '1';
+      let numeroInforme = `EA-${anio}${mes}-${nom}`;
+      if (tipoOrden === 'OTB' && esCapacitacion) {
+        numeroInforme += '-CAP';
+      }
+      numInformeField.value = numeroInforme + '-####';
+    });
   }
 
   document.getElementById('field-ot').addEventListener('change', detectarTipoOrden);
+  document.getElementById('field-nom').addEventListener('input', generarNumeroInforme);
   document.getElementById('field-nom').addEventListener('change', generarNumeroInforme);
   document.getElementById('field-capacitacion').addEventListener('change', generarNumeroInforme);
 

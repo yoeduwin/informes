@@ -40,10 +40,15 @@ function doGet(e) {
       return output_(res, callback);
     }
 
+    if (action === 'getConsecutivo') {
+      const res = getConsecutivoSafe_(e.parameter);
+      return output_(res, callback);
+    }
+
     return output_({
       success: true,
       message: 'Web App OK',
-      actions: ['getTablero (GET)', 'getOrdenes (GET)', 'createExpediente (POST)', 'updateEstatus (POST)']
+      actions: ['getTablero (GET)', 'getOrdenes (GET)', 'getConsecutivo (GET)', 'createExpediente (POST)', 'updateEstatus (POST)']
     }, callback);
   } catch (err) {
     return output_({ success: false, error: 'doGet fatal: ' + err.message, data: [] }, callback);
@@ -300,6 +305,67 @@ function getOrdenesSafe_() {
     Logger.log('Error en getOrdenes: ' + err.message);
     return { success: false, error: 'getOrdenes error: ' + err.message, data: [] };
   }
+}
+
+function getConsecutivoSafe_(params) {
+  try {
+    const anio = params.anio || '';
+    const mes = params.mes || '';
+    const nom = params.nom || '';
+    const tipo = params.tipo || 'OT'; // OT o OTB
+    const cap = params.cap === '1';
+
+    if (!anio || !mes || !nom) {
+      return { success: false, error: 'Faltan parámetros: anio, mes o nom' };
+    }
+
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      return { success: false, error: `No existe la hoja "${SHEET_NAME}".` };
+    }
+
+    // Construir prefijo del número de informe
+    let prefix = `EA-${anio}${mes}-${nom}`;
+    if (tipo === 'OTB' && cap) {
+      prefix += '-CAP';
+    }
+
+    // Buscar el último consecutivo con este prefijo
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      // Primera vez, consecutivo 0001
+      return { success: true, numeroInforme: `${prefix}-0001` };
+    }
+
+    // Leer columna B (NumInforme) desde la fila 2
+    const values = sheet.getRange(2, 2, lastRow - 1, 1).getDisplayValues().flat();
+
+    // Filtrar por el prefijo y extraer consecutivos
+    const regex = new RegExp(`^${escapeRegex_(prefix)}-(\\d{4})$`);
+    let maxConsecutivo = 0;
+
+    values.forEach(val => {
+      const match = String(val || '').trim().match(regex);
+      if (match) {
+        const consecutivo = parseInt(match[1], 10);
+        if (consecutivo > maxConsecutivo) {
+          maxConsecutivo = consecutivo;
+        }
+      }
+    });
+
+    // Siguiente consecutivo
+    const siguiente = String(maxConsecutivo + 1).padStart(4, '0');
+    return { success: true, numeroInforme: `${prefix}-${siguiente}` };
+
+  } catch (err) {
+    Logger.log('Error en getConsecutivo: ' + err.message);
+    return { success: false, error: 'getConsecutivo error: ' + err.message };
+  }
+}
+
+function escapeRegex_(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function output_(obj, callback) {
