@@ -235,17 +235,6 @@
   <div class="content">
     <div id="section-nuevo" class="section active">
 
-      <div class="info-box">
-        <strong>✨ MEJORAS DEL SISTEMA:</strong>
-        <ul style="margin: 8px 0 0 20px; line-height: 1.8;">
-          <li>🔍 Detección automática de tipo OT / OTB con numeración independiente</li>
-          <li>📋 Generación automática de N° de Informe (formato: EA-AAMM-NOM o EA-AAMM-NOM-CAP)</li>
-          <li>📎 El Perfil de Datos se adjunta automáticamente al expediente</li>
-          <li>📁 Soporte para múltiples hojas de campo y croquis/planos</li>
-          <li>✅ Validación de campos obligatorios antes de enviar</li>
-        </ul>
-      </div>
-
       <div class="card" style="border-left: 5px solid #217346; background: #f0f7f3;">
         <div class="card-title">📗 PASO 1: IMPORTAR PERFIL DE DATOS</div>
         <div class="form-grid">
@@ -264,7 +253,9 @@
         <div class="form-grid">
           <div class="form-group">
             <label>N° Orden de Trabajo (OT/OTB) *</label>
-            <input type="text" id="field-ot" placeholder="Ej: OT25-0106-001 o OTB25-0106-001" required>
+            <select id="field-ot" required>
+              <option value="">Cargando órdenes de trabajo...</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -403,6 +394,32 @@
   let perfilDataFile = null; // Variable para guardar el archivo del perfil
   let allTableroData = []; // Para filtros
 
+  // 0) CARGAR ÓRDENES DE TRABAJO AL INICIO
+  function cargarOrdenesDisponibles() {
+    jsonp(`${SCRIPT_URL}?action=getOrdenes`, (result) => {
+      const select = document.getElementById('field-ot');
+      select.innerHTML = '<option value="">Seleccione una OT...</option>';
+
+      if (result && result.success && result.data && result.data.length > 0) {
+        result.data.forEach(orden => {
+          const option = document.createElement('option');
+          option.value = orden.ot;
+          option.textContent = `${orden.ot} - ${orden.cliente || 'Sin cliente'}`;
+          option.dataset.cliente = orden.cliente || '';
+          select.appendChild(option);
+        });
+      } else {
+        select.innerHTML = '<option value="">No hay órdenes disponibles</option>';
+      }
+    }, () => {
+      const select = document.getElementById('field-ot');
+      select.innerHTML = '<option value="">Error al cargar órdenes</option>';
+    });
+  }
+
+  // Cargar órdenes al cargar la página
+  document.addEventListener('DOMContentLoaded', cargarOrdenesDisponibles);
+
   // 1) PERFIL DE DATOS (EXCEL)
   document.getElementById('excelFile').addEventListener('change', function(e) {
     const file = e.target.files[0];
@@ -486,7 +503,7 @@
     numInformeField.value = numeroInforme;
   }
 
-  document.getElementById('field-ot').addEventListener('input', detectarTipoOrden);
+  document.getElementById('field-ot').addEventListener('change', detectarTipoOrden);
   document.getElementById('field-nom').addEventListener('change', generarNumeroInforme);
   document.getElementById('field-capacitacion').addEventListener('change', generarNumeroInforme);
 
@@ -832,6 +849,7 @@
         estatus: nuevoEstatus
       };
 
+      // Enviar POST
       await fetch(SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
@@ -839,14 +857,34 @@
         body: JSON.stringify(payload)
       });
 
-      // Actualizar el array local
-      allTableroData[index].estatus = nuevoEstatus;
+      // Esperar un momento para que se procese
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Mostrar mensaje de éxito
-      alert(`✅ Estatus actualizado a "${nuevoEstatus}"`);
+      // Verificar con GET que sí se actualizó
+      jsonp(`${SCRIPT_URL}?action=getTablero`, (result) => {
+        if (result && result.success) {
+          const updated = result.data.find(r =>
+            String(r.ot || '').trim().toUpperCase() === ot.trim().toUpperCase()
+          );
 
-      // Recargar tablero para reflejar cambios
-      setTimeout(() => cargarTablero(), 1000);
+          if (updated && updated.estatus === nuevoEstatus) {
+            // Actualización exitosa
+            allTableroData = result.data;
+            renderTablero(allTableroData);
+            alert(`✅ Estatus actualizado correctamente a "${nuevoEstatus}"`);
+          } else {
+            // No se actualizó
+            alert(`⚠️ El estatus no se pudo actualizar. Por favor, recarga el tablero.`);
+            cargarTablero();
+          }
+        } else {
+          alert(`⚠️ No se pudo verificar la actualización. Recargando tablero...`);
+          cargarTablero();
+        }
+      }, () => {
+        alert(`❌ Error al verificar la actualización. Recargando tablero...`);
+        cargarTableero();
+      });
 
     } catch (err) {
       console.error(err);

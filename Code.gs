@@ -4,6 +4,10 @@ const SPREADSHEET_ID = '1aa2uX6gqHINUP_h-HcNsxJzlwSI1OnSVzqMaFaI_8NE';
 const SHEET_NAME     = 'Informes';
 const ROOT_FOLDER_ID = '1kd13FVLhy7xQX7M9QrkKNB33DlIWHzGb';
 
+// Configuración del Sheets de órdenes de trabajo
+const ORDENES_SPREADSHEET_ID = '1pWIzrtLAh_YHow1LH55tIfgsCUoct-64JjPaBk5u10U';
+const ORDENES_SHEET_NAME     = 'PANEL';
+
 // Estructura actualizada en la hoja (fila 1 como encabezados):
 // A: Timestamp
 // B: NumInforme
@@ -30,10 +34,16 @@ function doGet(e) {
       const res = getTableroSafe_();
       return output_(res, callback);
     }
+
+    if (action === 'getOrdenes') {
+      const res = getOrdenesSafe_();
+      return output_(res, callback);
+    }
+
     return output_({
       success: true,
       message: 'Web App OK',
-      actions: ['getTablero (GET)', 'createExpediente (POST)', 'updateEstatus (POST)']
+      actions: ['getTablero (GET)', 'getOrdenes (GET)', 'createExpediente (POST)', 'updateEstatus (POST)']
     }, callback);
   } catch (err) {
     return output_({ success: false, error: 'doGet fatal: ' + err.message, data: [] }, callback);
@@ -256,6 +266,39 @@ function getTableroSafe_() {
   } catch (err) {
     Logger.log('Error en getTablero: ' + err.message);
     return { success: false, error: 'getTablero error: ' + err.message, data: [] };
+  }
+}
+
+function getOrdenesSafe_() {
+  try {
+    const sheet = SpreadsheetApp.openById(ORDENES_SPREADSHEET_ID).getSheetByName(ORDENES_SHEET_NAME);
+    if (!sheet) {
+      return { success: false, error: `No existe la hoja "${ORDENES_SHEET_NAME}".`, data: [] };
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { success: true, data: [] };
+
+    // Leer columnas B (OT), E (Cliente) y Q (Estatus)
+    // Columna B = 2, E = 5, Q = 17
+    const values = sheet.getRange(2, 1, lastRow - 1, 17).getDisplayValues();
+
+    // Filtrar: no mostrar si columna Q (índice 16) dice "ENTREGADO"
+    const ordenes = values
+      .filter(row => {
+        const estatus = String(row[16] || '').trim().toUpperCase(); // Columna Q
+        return estatus !== 'ENTREGADO';
+      })
+      .map(row => ({
+        ot: row[1],      // Columna B (índice 1)
+        cliente: row[4]  // Columna E (índice 4)
+      }))
+      .filter(orden => orden.ot && orden.ot.trim() !== ''); // Solo órdenes con número válido
+
+    return { success: true, data: ordenes };
+  } catch (err) {
+    Logger.log('Error en getOrdenes: ' + err.message);
+    return { success: false, error: 'getOrdenes error: ' + err.message, data: [] };
   }
 }
 
