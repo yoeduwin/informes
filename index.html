@@ -248,37 +248,6 @@
       transform: scale(1.02);
     }
 
-    .tooltip-help {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      background: #6c757d;
-      color: white;
-      border-radius: 50%;
-      text-align: center;
-      line-height: 14px;
-      font-size: 10px;
-      cursor: help;
-      margin-left: 5px;
-      position: relative;
-    }
-
-    .tooltip-help:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      left: 20px;
-      top: -5px;
-      background: #2c3e50;
-      color: white;
-      padding: 8px 12px;
-      border-radius: 4px;
-      white-space: nowrap;
-      z-index: 1000;
-      font-size: 11px;
-      font-weight: normal;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-
     .autosave-indicator {
       position: fixed;
       bottom: 20px;
@@ -298,22 +267,6 @@
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
-    }
-
-    .input-error {
-      border-color: #dc3545 !important;
-      background: #fff5f5 !important;
-    }
-
-    .input-valid {
-      border-color: #28a745 !important;
-    }
-
-    .error-message {
-      color: #dc3545;
-      font-size: 10px;
-      margin-top: 3px;
-      font-weight: 600;
     }
 
     @media (max-width: 768px) {
@@ -424,20 +377,12 @@
             <input type="text" id="field-solicitante">
           </div>
           <div class="form-group">
-            <label>
-              RFC
-              <span class="tooltip-help" data-tooltip="Formato: XXX######XXX (13 caracteres)">?</span>
-            </label>
-            <input type="text" id="field-rfc" maxlength="13" placeholder="Ej: ABC123456XYZ">
-            <span class="error-message" id="rfc-error" style="display: none;"></span>
+            <label>RFC</label>
+            <input type="text" id="field-rfc" placeholder="Auto-llenado del perfil">
           </div>
           <div class="form-group">
-            <label>
-              Teléfono
-              <span class="tooltip-help" data-tooltip="Formato: 10 dígitos">?</span>
-            </label>
-            <input type="text" id="field-tel" maxlength="10" placeholder="Ej: 2221234567">
-            <span class="error-message" id="tel-error" style="display: none;"></span>
+            <label>Teléfono</label>
+            <input type="text" id="field-tel" placeholder="Auto-llenado del perfil">
           </div>
           <div class="form-group full"><label>Dirección del Centro de Trabajo</label><input type="text" id="field-dir"></div>
 
@@ -558,7 +503,9 @@
 
   // 0) CARGAR ÓRDENES DE TRABAJO AL INICIO
   function cargarOrdenesDisponibles() {
+    console.log('Cargando órdenes de trabajo...');
     jsonp(`${SCRIPT_URL}?action=getOrdenes`, (result) => {
+      console.log('Resultado de getOrdenes:', result);
       const select = document.getElementById('field-ot');
       select.innerHTML = '<option value="">Seleccione una OT...</option>';
 
@@ -570,17 +517,17 @@
           option.dataset.cliente = orden.cliente || '';
           select.appendChild(option);
         });
+        console.log(`${result.data.length} órdenes cargadas`);
       } else {
         select.innerHTML = '<option value="">No hay órdenes disponibles</option>';
+        console.log('No hay órdenes disponibles');
       }
     }, () => {
+      console.error('Error al cargar órdenes de trabajo');
       const select = document.getElementById('field-ot');
       select.innerHTML = '<option value="">Error al cargar órdenes</option>';
     });
   }
-
-  // Cargar órdenes al cargar la página
-  document.addEventListener('DOMContentLoaded', cargarOrdenesDisponibles);
 
   // Catálogos de NOMs según tipo de orden
   const NOMS_OT = ['011', '015', '022', '024', '025', '081'];
@@ -594,11 +541,13 @@
 
   // 1) PERFIL DE DATOS (EXCEL O GOOGLE SHEETS)
   document.getElementById('excelFile').addEventListener('change', function(e) {
+    console.log('Evento change en excelFile disparado');
     const file = e.target.files[0];
     const infoQuick = document.getElementById('info-perfil-quick');
     const infoPerfil = document.getElementById('info-perfil');
 
     if (!file) {
+      console.log('No hay archivo seleccionado');
       perfilDataFile = null;
       infoQuick.innerHTML = '⚠️ Sin cargar';
       infoQuick.style.color = '#856404';
@@ -609,6 +558,8 @@
       return;
     }
 
+    console.log('Archivo seleccionado:', file.name, file.size, 'bytes');
+
     // Limpiar Google Sheet si se carga Excel
     document.getElementById('gsheetUrl').value = '';
 
@@ -616,30 +567,52 @@
 
     const reader = new FileReader();
     reader.onload = function(event) {
-      const data = new Uint8Array(event.target.result);
-      const wb = XLSX.read(data, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
+      try {
+        console.log('Leyendo archivo Excel...');
+        const data = new Uint8Array(event.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
 
-      const getVal = (cell) => ws[cell] ? ws[cell].v : '';
+        const getVal = (cell) => ws[cell] ? ws[cell].v : '';
 
-      document.getElementById('field-solicitante').value = getVal('D3');
-      document.getElementById('field-cliente').value = getVal('D5');
-      document.getElementById('field-rfc').value = getVal('D7');
-      document.getElementById('field-tel').value = getVal('I7');
-      document.getElementById('field-dir').value = getVal('D13');  // Cambiado de D11 a D13
+        const solicitante = getVal('D3');
+        const cliente = getVal('D5');
+        const rfc = getVal('D7');
+        const tel = getVal('I7');
+        const dir = getVal('D13');
 
-      // Actualizar indicadores
-      infoQuick.innerHTML = `✅ ${file.name.substring(0, 20)}...`;
-      infoQuick.style.color = '#0f5132';
+        console.log('Datos extraídos:', { solicitante, cliente, rfc, tel, dir });
 
-      if (infoPerfil) {
-        infoPerfil.innerHTML = `✅ Perfil cargado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB)`;
-        infoPerfil.style.color = '#0f5132';
+        document.getElementById('field-solicitante').value = solicitante;
+        document.getElementById('field-cliente').value = cliente;
+        document.getElementById('field-rfc').value = rfc;
+        document.getElementById('field-tel').value = tel;
+        document.getElementById('field-dir').value = dir;
+
+        // Actualizar indicadores
+        infoQuick.innerHTML = `✅ ${file.name.substring(0, 20)}...`;
+        infoQuick.style.color = '#0f5132';
+
+        if (infoPerfil) {
+          infoPerfil.innerHTML = `✅ Perfil cargado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB)`;
+          infoPerfil.style.color = '#0f5132';
+        }
+
+        console.log('Perfil de datos cargado exitosamente');
+
+        // Validar progreso
+        validarProgreso();
+      } catch (err) {
+        console.error('Error al leer Excel:', err);
+        alert('Error al leer el archivo Excel: ' + err.message);
       }
-
-      // Validar progreso
-      validarProgreso();
     };
+
+    reader.onerror = function(err) {
+      console.error('Error del FileReader:', err);
+      alert('Error al cargar el archivo: ' + err.message);
+    };
+
     reader.readAsArrayBuffer(file);
   });
 
@@ -890,17 +863,6 @@
     const loader = document.getElementById('main-loader');
     const status = document.getElementById('main-status');
 
-    // Confirmación antes de enviar
-    const numInforme = document.getElementById('field-num-informe').value;
-    const ot = document.getElementById('field-ot').value.trim();
-    const cliente = document.getElementById('field-cliente').value.trim();
-
-    const confirmar = confirm(`¿Confirmar creación del expediente?\n\nNúmero de Informe: ${numInforme}\nOT: ${ot}\nCliente: ${cliente}\n\n¿Deseas continuar?`);
-
-    if (!confirmar) {
-      return;
-    }
-
     // Validaciones
     const ot = document.getElementById('field-ot').value.trim();
     const cliente = document.getElementById('field-cliente').value.trim();
@@ -909,6 +871,13 @@
     const numInforme = document.getElementById('field-num-informe').value;
     const tipoOrden = document.getElementById('field-tipo-orden').value;
     const otPdf = document.getElementById('up-ot').files[0];
+
+    // Confirmación antes de enviar
+    const confirmar = confirm(`¿Confirmar creación del expediente?\n\nNúmero de Informe: ${numInforme}\nOT: ${ot}\nCliente: ${cliente}\n\n¿Deseas continuar?`);
+
+    if (!confirmar) {
+      return;
+    }
 
     if (!ot) {
       alert("⚠️ Por favor ingresa el número de OT o OTB.");
@@ -1620,72 +1589,6 @@
   });
 
   // ============================================
-  // VALIDACIÓN DE RFC Y TELÉFONO
-  // ============================================
-
-  function validarRFC(rfc) {
-    // RFC de persona moral: 12 caracteres
-    // RFC de persona física: 13 caracteres
-    const rfcPattern = /^([A-ZÑ&]{3,4})\d{6}([A-Z0-9]{2,3})$/;
-    return rfcPattern.test(rfc.toUpperCase());
-  }
-
-  function validarTelefono(tel) {
-    // Teléfono mexicano: 10 dígitos
-    const telPattern = /^\d{10}$/;
-    return telPattern.test(tel);
-  }
-
-  document.getElementById('field-rfc').addEventListener('input', function() {
-    const rfc = this.value.toUpperCase();
-    this.value = rfc; // Convertir a mayúsculas automáticamente
-
-    const errorMsg = document.getElementById('rfc-error');
-
-    if (rfc.length === 0) {
-      this.classList.remove('input-error', 'input-valid');
-      errorMsg.style.display = 'none';
-      return;
-    }
-
-    if (validarRFC(rfc)) {
-      this.classList.remove('input-error');
-      this.classList.add('input-valid');
-      errorMsg.style.display = 'none';
-    } else {
-      this.classList.add('input-error');
-      this.classList.remove('input-valid');
-      errorMsg.textContent = 'RFC inválido. Formato: 3-4 letras + 6 dígitos + 2-3 caracteres';
-      errorMsg.style.display = 'block';
-    }
-  });
-
-  document.getElementById('field-tel').addEventListener('input', function() {
-    // Solo permitir números
-    this.value = this.value.replace(/[^\d]/g, '');
-
-    const tel = this.value;
-    const errorMsg = document.getElementById('tel-error');
-
-    if (tel.length === 0) {
-      this.classList.remove('input-error', 'input-valid');
-      errorMsg.style.display = 'none';
-      return;
-    }
-
-    if (validarTelefono(tel)) {
-      this.classList.remove('input-error');
-      this.classList.add('input-valid');
-      errorMsg.style.display = 'none';
-    } else {
-      this.classList.add('input-error');
-      this.classList.remove('input-valid');
-      errorMsg.textContent = 'Teléfono inválido. Debe tener 10 dígitos';
-      errorMsg.style.display = 'block';
-    }
-  });
-
-  // ============================================
   // DRAG & DROP PARA ARCHIVOS
   // ============================================
 
@@ -1823,7 +1726,9 @@
 
   // Inicializar validación al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
-    validarProgreso();
+    console.log('DOM cargado, inicializando...');
+    cargarOrdenesDisponibles(); // Cargar órdenes de trabajo
+    validarProgreso(); // Validar estado inicial
     cargarBorrador(); // Intentar cargar borrador guardado
   });
 
