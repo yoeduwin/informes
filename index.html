@@ -242,6 +242,80 @@
       display: none;
     }
 
+    .file-zone.drag-over {
+      border-color: var(--accent);
+      background: #e8f5e9;
+      transform: scale(1.02);
+    }
+
+    .tooltip-help {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      background: #6c757d;
+      color: white;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 14px;
+      font-size: 10px;
+      cursor: help;
+      margin-left: 5px;
+      position: relative;
+    }
+
+    .tooltip-help:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 20px;
+      top: -5px;
+      background: #2c3e50;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      white-space: nowrap;
+      z-index: 1000;
+      font-size: 11px;
+      font-weight: normal;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .autosave-indicator {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #28a745;
+      color: white;
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      display: none;
+      z-index: 1000;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .input-error {
+      border-color: #dc3545 !important;
+      background: #fff5f5 !important;
+    }
+
+    .input-valid {
+      border-color: #28a745 !important;
+    }
+
+    .error-message {
+      color: #dc3545;
+      font-size: 10px;
+      margin-top: 3px;
+      font-weight: 600;
+    }
+
     @media (max-width: 768px) {
       .form-grid { grid-template-columns: 1fr; }
       .filter-bar { flex-direction: column; }
@@ -341,10 +415,30 @@
             <input type="text" id="field-num-informe" readonly style="background: white; font-weight: bold; font-size: 15px; color: var(--primary); border: 2px solid var(--primary);" placeholder="Se generará al completar OT y NOM">
           </div>
 
-          <div class="form-group"><label>Empresa / Razón Social *</label><input type="text" id="field-cliente" required></div>
-          <div class="form-group"><label>Solicitante</label><input type="text" id="field-solicitante"></div>
-          <div class="form-group"><label>RFC</label><input type="text" id="field-rfc"></div>
-          <div class="form-group"><label>Teléfono</label><input type="text" id="field-tel"></div>
+          <div class="form-group">
+            <label>Empresa / Razón Social *</label>
+            <input type="text" id="field-cliente" required>
+          </div>
+          <div class="form-group">
+            <label>Solicitante</label>
+            <input type="text" id="field-solicitante">
+          </div>
+          <div class="form-group">
+            <label>
+              RFC
+              <span class="tooltip-help" data-tooltip="Formato: XXX######XXX (13 caracteres)">?</span>
+            </label>
+            <input type="text" id="field-rfc" maxlength="13" placeholder="Ej: ABC123456XYZ">
+            <span class="error-message" id="rfc-error" style="display: none;"></span>
+          </div>
+          <div class="form-group">
+            <label>
+              Teléfono
+              <span class="tooltip-help" data-tooltip="Formato: 10 dígitos">?</span>
+            </label>
+            <input type="text" id="field-tel" maxlength="10" placeholder="Ej: 2221234567">
+            <span class="error-message" id="tel-error" style="display: none;"></span>
+          </div>
           <div class="form-group full"><label>Dirección del Centro de Trabajo</label><input type="text" id="field-dir"></div>
 
           <div class="form-group">
@@ -405,9 +499,14 @@
 
       <div id="main-loader" class="loader">
         <div class="spinner"></div>
-        <p>Subiendo archivos y registrando en Sheets...</p>
+        <p id="loader-message">Subiendo archivos y registrando en Sheets...</p>
       </div>
       <div id="main-status" class="status-msg"></div>
+    </div>
+
+    <!-- Indicador de auto-guardado -->
+    <div class="autosave-indicator" id="autosave-indicator">
+      💾 Borrador guardado
     </div>
 
     <div id="section-tablero" class="section">
@@ -455,6 +554,7 @@
 
   let perfilDataFile = null; // Variable para guardar el archivo del perfil
   let allTableroData = []; // Para filtros
+  let autosaveTimer = null; // Timer para auto-guardado
 
   // 0) CARGAR ÓRDENES DE TRABAJO AL INICIO
   function cargarOrdenesDisponibles() {
@@ -843,6 +943,24 @@
     btn.disabled = true;
     loader.style.display = 'block';
     status.style.display = 'none';
+
+    // Calcular tamaño total y mostrar estimación
+    let totalBytes = 0;
+    Array.from(document.getElementById('up-ot').files).forEach(f => totalBytes += f.size);
+    Array.from(document.getElementById('up-campo').files).forEach(f => totalBytes += f.size);
+    Array.from(document.getElementById('up-croquis').files).forEach(f => totalBytes += f.size);
+    Array.from(document.getElementById('up-otros').files).forEach(f => totalBytes += f.size);
+    if (perfilDataFile && !perfilDataFile.isGoogleSheet) {
+      totalBytes += perfilDataFile.size;
+    }
+
+    const segundosEstimados = Math.ceil((totalBytes / (1024 * 1024)) * 1.5);
+    const loaderMessage = document.getElementById('loader-message');
+    if (segundosEstimados > 10) {
+      loaderMessage.textContent = `Subiendo archivos... Esto puede tomar ~${segundosEstimados < 60 ? segundosEstimados + ' segundos' : Math.ceil(segundosEstimados / 60) + ' minuto(s)'}`;
+    } else {
+      loaderMessage.textContent = 'Subiendo archivos y registrando en Sheets...';
+    }
 
     try {
       const payload = {
@@ -1429,9 +1547,284 @@
     }
   }
 
+  // ============================================
+  // AUTO-GUARDADO EN LOCALSTORAGE
+  // ============================================
+
+  function guardarBorrador() {
+    const borrador = {
+      ot: document.getElementById('field-ot').value,
+      nom: document.getElementById('field-nom').value,
+      capacitacion: document.getElementById('field-capacitacion').checked,
+      cliente: document.getElementById('field-cliente').value,
+      solicitante: document.getElementById('field-solicitante').value,
+      rfc: document.getElementById('field-rfc').value,
+      telefono: document.getElementById('field-tel').value,
+      direccion: document.getElementById('field-dir').value,
+      fecha: document.getElementById('field-fecha').value,
+      timestamp: new Date().toISOString()
+    };
+
+    localStorage.setItem('expediente_borrador', JSON.stringify(borrador));
+
+    // Mostrar indicador
+    const indicator = document.getElementById('autosave-indicator');
+    indicator.style.display = 'block';
+    setTimeout(() => {
+      indicator.style.display = 'none';
+    }, 2000);
+  }
+
+  function cargarBorrador() {
+    const borrador = localStorage.getItem('expediente_borrador');
+    if (borrador) {
+      try {
+        const data = JSON.parse(borrador);
+        const confirmCargar = confirm('Se encontró un borrador guardado. ¿Deseas recuperarlo?');
+
+        if (confirmCargar) {
+          document.getElementById('field-ot').value = data.ot || '';
+          document.getElementById('field-nom').value = data.nom || '';
+          document.getElementById('field-capacitacion').checked = data.capacitacion || false;
+          document.getElementById('field-cliente').value = data.cliente || '';
+          document.getElementById('field-solicitante').value = data.solicitante || '';
+          document.getElementById('field-rfc').value = data.rfc || '';
+          document.getElementById('field-tel').value = data.telefono || '';
+          document.getElementById('field-dir').value = data.direccion || '';
+          document.getElementById('field-fecha').value = data.fecha || '';
+
+          // Disparar eventos para actualizar el formulario
+          document.getElementById('field-ot').dispatchEvent(new Event('change'));
+          validarProgreso();
+        } else {
+          localStorage.removeItem('expediente_borrador');
+        }
+      } catch (err) {
+        console.error('Error al cargar borrador:', err);
+      }
+    }
+  }
+
+  function programarAutoGuardado() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(guardarBorrador, 3000); // Guardar después de 3 segundos de inactividad
+  }
+
+  // Event listeners para auto-guardado
+  ['field-ot', 'field-nom', 'field-cliente', 'field-solicitante', 'field-rfc', 'field-tel', 'field-dir', 'field-fecha'].forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.addEventListener('input', programarAutoGuardado);
+      element.addEventListener('change', programarAutoGuardado);
+    }
+  });
+
+  // ============================================
+  // VALIDACIÓN DE RFC Y TELÉFONO
+  // ============================================
+
+  function validarRFC(rfc) {
+    // RFC de persona moral: 12 caracteres
+    // RFC de persona física: 13 caracteres
+    const rfcPattern = /^([A-ZÑ&]{3,4})\d{6}([A-Z0-9]{2,3})$/;
+    return rfcPattern.test(rfc.toUpperCase());
+  }
+
+  function validarTelefono(tel) {
+    // Teléfono mexicano: 10 dígitos
+    const telPattern = /^\d{10}$/;
+    return telPattern.test(tel);
+  }
+
+  document.getElementById('field-rfc').addEventListener('input', function() {
+    const rfc = this.value.toUpperCase();
+    this.value = rfc; // Convertir a mayúsculas automáticamente
+
+    const errorMsg = document.getElementById('rfc-error');
+
+    if (rfc.length === 0) {
+      this.classList.remove('input-error', 'input-valid');
+      errorMsg.style.display = 'none';
+      return;
+    }
+
+    if (validarRFC(rfc)) {
+      this.classList.remove('input-error');
+      this.classList.add('input-valid');
+      errorMsg.style.display = 'none';
+    } else {
+      this.classList.add('input-error');
+      this.classList.remove('input-valid');
+      errorMsg.textContent = 'RFC inválido. Formato: 3-4 letras + 6 dígitos + 2-3 caracteres';
+      errorMsg.style.display = 'block';
+    }
+  });
+
+  document.getElementById('field-tel').addEventListener('input', function() {
+    // Solo permitir números
+    this.value = this.value.replace(/[^\d]/g, '');
+
+    const tel = this.value;
+    const errorMsg = document.getElementById('tel-error');
+
+    if (tel.length === 0) {
+      this.classList.remove('input-error', 'input-valid');
+      errorMsg.style.display = 'none';
+      return;
+    }
+
+    if (validarTelefono(tel)) {
+      this.classList.remove('input-error');
+      this.classList.add('input-valid');
+      errorMsg.style.display = 'none';
+    } else {
+      this.classList.add('input-error');
+      this.classList.remove('input-valid');
+      errorMsg.textContent = 'Teléfono inválido. Debe tener 10 dígitos';
+      errorMsg.style.display = 'block';
+    }
+  });
+
+  // ============================================
+  // DRAG & DROP PARA ARCHIVOS
+  // ============================================
+
+  function setupDragAndDrop(inputId) {
+    const fileInput = document.getElementById(inputId);
+    const dropZone = fileInput.parentElement;
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.classList.add('drag-over');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.classList.remove('drag-over');
+      }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+
+      // Crear un nuevo FileList con los archivos arrastrados
+      fileInput.files = files;
+
+      // Disparar evento change
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }, false);
+  }
+
+  // Aplicar drag & drop a todos los inputs de archivo
+  ['up-ot', 'up-campo', 'up-croquis', 'up-otros'].forEach(id => {
+    setupDragAndDrop(id);
+  });
+
+  // ============================================
+  // AUTO-SCROLL AL SIGUIENTE PASO
+  // ============================================
+
+  function scrollToNextStep(stepNumber) {
+    const cards = document.querySelectorAll('.card');
+    if (cards[stepNumber]) {
+      cards[stepNumber].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // Modificar validarProgreso para incluir auto-scroll
+  const originalValidarProgreso = validarProgreso;
+  validarProgreso = function() {
+    const wasPaso1Complete = perfilDataFile !== null;
+
+    originalValidarProgreso();
+
+    const isPaso1Complete = perfilDataFile !== null;
+    const isPaso2Complete = document.getElementById('field-num-informe').value.trim() !== '' &&
+                            !document.getElementById('field-num-informe').value.includes('####');
+
+    // Auto-scroll cuando se completa un paso
+    if (!wasPaso1Complete && isPaso1Complete) {
+      setTimeout(() => scrollToNextStep(1), 300); // Scroll a Paso 2
+    }
+  };
+
+  // ============================================
+  // ESTIMACIÓN DE TIEMPO DE CARGA
+  // ============================================
+
+  function estimarTiempoCarga() {
+    const indicator = document.getElementById('total-size-indicator');
+    const totalSizeSpan = document.getElementById('total-size');
+
+    let totalBytes = 0;
+
+    Array.from(document.getElementById('up-ot').files).forEach(f => totalBytes += f.size);
+    Array.from(document.getElementById('up-campo').files).forEach(f => totalBytes += f.size);
+    Array.from(document.getElementById('up-croquis').files).forEach(f => totalBytes += f.size);
+    Array.from(document.getElementById('up-otros').files).forEach(f => totalBytes += f.size);
+
+    if (perfilDataFile && !perfilDataFile.isGoogleSheet) {
+      totalBytes += perfilDataFile.size;
+    }
+
+    if (totalBytes > 0) {
+      // Estimación: ~1MB por segundo (puede variar según conexión)
+      const segundosEstimados = Math.ceil((totalBytes / (1024 * 1024)) * 1.5);
+
+      let tiempoTexto = '';
+      if (segundosEstimados < 10) {
+        tiempoTexto = ' (~unos segundos)';
+      } else if (segundosEstimados < 60) {
+        tiempoTexto = ` (~${segundosEstimados} segundos)`;
+      } else {
+        const minutos = Math.ceil(segundosEstimados / 60);
+        tiempoTexto = ` (~${minutos} minuto${minutos > 1 ? 's' : ''})`;
+      }
+
+      // Agregar estimación al texto actual
+      const currentText = totalSizeSpan.textContent;
+      if (!currentText.includes('~')) {
+        totalSizeSpan.textContent = currentText + tiempoTexto;
+      }
+    }
+  }
+
+  // Sobrescribir calcularTamanoTotal para incluir estimación
+  const originalCalcularTamanoTotal = calcularTamanoTotal;
+  calcularTamanoTotal = function() {
+    originalCalcularTamanoTotal();
+    estimarTiempoCarga();
+  };
+
+  // ============================================
+  // LIMPIAR BORRADOR AL ENVIAR EXITOSAMENTE
+  // ============================================
+
+  const originalLimpiarFormulario = limpiarFormulario;
+  limpiarFormulario = function() {
+    originalLimpiarFormulario();
+    localStorage.removeItem('expediente_borrador');
+  };
+
+  // ============================================
+  // INICIALIZACIÓN
+  // ============================================
+
   // Inicializar validación al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
     validarProgreso();
+    cargarBorrador(); // Intentar cargar borrador guardado
   });
 
   // Reloj
