@@ -212,6 +212,36 @@
       color: #1976D2;
     }
 
+    .card {
+      transition: all 0.3s ease;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      transition: width 0.3s ease;
+    }
+
+    .total-size-indicator {
+      background: #e7f3ff;
+      border-left: 3px solid #2196F3;
+      padding: 8px 12px;
+      margin-top: 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      display: none;
+    }
+
     @media (max-width: 768px) {
       .form-grid { grid-template-columns: 1fr; }
       .filter-bar { flex-direction: column; }
@@ -252,6 +282,11 @@
 
   <div class="content">
     <div id="section-nuevo" class="section active">
+
+      <!-- Barra de progreso -->
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
+      </div>
 
       <div class="card" style="border-left: 3px solid var(--accent);">
         <div class="card-title">📗 PASO 1: Perfil de Datos</div>
@@ -359,6 +394,11 @@
             <p class="muted" id="info-perfil" style="margin-top: 5px; color: #856404;">⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel o Google Sheet en el PASO 1.</p>
           </div>
         </div>
+      </div>
+
+      <!-- Indicador de tamaño total -->
+      <div class="total-size-indicator" id="total-size-indicator">
+        📦 Tamaño total de archivos: <span id="total-size">0 KB</span>
       </div>
 
       <button id="btn-enviar" class="btn btn-submit" onclick="enviarTodo()">🚀 GENERAR EXPEDIENTE EN DRIVE</button>
@@ -496,6 +536,9 @@
         infoPerfil.innerHTML = `✅ Perfil cargado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB)`;
         infoPerfil.style.color = '#0f5132';
       }
+
+      // Validar progreso
+      validarProgreso();
     };
     reader.readAsArrayBuffer(file);
   });
@@ -545,6 +588,9 @@
           infoPerfil.innerHTML = `✅ Perfil cargado desde Google Sheets`;
           infoPerfil.style.color = '#0f5132';
         }
+
+        // Validar progreso
+        validarProgreso();
       } else {
         infoQuick.innerHTML = '❌ Error al cargar Google Sheet';
         infoQuick.style.color = '#dc3545';
@@ -607,38 +653,10 @@
     // Limpiar campo NOM si cambia el tipo
     nomField.value = '';
 
-    // Extraer y auto-llenar fecha de emisión de OT
-    extraerFechaDeOT(ot);
+    // Validar progreso
+    validarProgreso();
 
     generarNumeroInforme();
-  }
-
-  // Función para extraer fecha de la OT (formato: OT25-0106-001 o OTB26-0126-001)
-  function extraerFechaDeOT(ot) {
-    const fechaField = document.getElementById('field-fecha');
-
-    // Formato: OT[B]YY-MMYY-NNN donde YY=año, MMYY contiene mes
-    const match = ot.match(/OT[B]?(\d{2})-(\d{2})(\d{2})-/);
-
-    if (match) {
-      const anio = parseInt(match[1], 10); // 25 o 26
-      const mes = parseInt(match[2], 10);  // 01-12
-      const anioCompleto = 2000 + anio;    // 2025 o 2026
-
-      // Validar mes
-      if (mes >= 1 && mes <= 12) {
-        // Construir fecha (primer día del mes)
-        const fecha = new Date(anioCompleto, mes - 1, 1);
-        const fechaStr = fecha.toISOString().split('T')[0];
-
-        fechaField.value = fechaStr;
-
-        // Disparar evento change para calcular fecha de entrega
-        fechaField.dispatchEvent(new Event('change'));
-
-        console.log(`Fecha extraída de OT: ${fechaStr} (Año: ${anioCompleto}, Mes: ${mes})`);
-      }
-    }
   }
 
   function generarNumeroInforme() {
@@ -693,9 +711,11 @@
   }
 
   document.getElementById('field-ot').addEventListener('change', detectarTipoOrden);
-  document.getElementById('field-nom').addEventListener('input', generarNumeroInforme);
-  document.getElementById('field-nom').addEventListener('change', generarNumeroInforme);
-  document.getElementById('field-capacitacion').addEventListener('change', generarNumeroInforme);
+  document.getElementById('field-nom').addEventListener('input', () => { generarNumeroInforme(); validarProgreso(); });
+  document.getElementById('field-nom').addEventListener('change', () => { generarNumeroInforme(); validarProgreso(); });
+  document.getElementById('field-capacitacion').addEventListener('change', () => { generarNumeroInforme(); validarProgreso(); });
+  document.getElementById('field-fecha').addEventListener('change', validarProgreso);
+  document.getElementById('field-cliente').addEventListener('input', validarProgreso);
 
   // 3) FECHAS (+15 días)
   document.getElementById('field-fecha').addEventListener('change', function() {
@@ -716,6 +736,7 @@
     } else {
       info.innerHTML = '';
     }
+    validarProgreso();
   });
 
   document.getElementById('up-campo').addEventListener('change', function() {
@@ -727,6 +748,7 @@
     } else {
       info.innerHTML = '';
     }
+    validarProgreso();
   });
 
   document.getElementById('up-croquis').addEventListener('change', function() {
@@ -738,6 +760,7 @@
     } else {
       info.innerHTML = '';
     }
+    validarProgreso();
   });
 
   document.getElementById('up-otros').addEventListener('change', function() {
@@ -749,6 +772,7 @@
     } else {
       info.innerHTML = '';
     }
+    validarProgreso();
   });
 
   // 5) TABS
@@ -765,6 +789,17 @@
     const btn = document.getElementById('btn-enviar');
     const loader = document.getElementById('main-loader');
     const status = document.getElementById('main-status');
+
+    // Confirmación antes de enviar
+    const numInforme = document.getElementById('field-num-informe').value;
+    const ot = document.getElementById('field-ot').value.trim();
+    const cliente = document.getElementById('field-cliente').value.trim();
+
+    const confirmar = confirm(`¿Confirmar creación del expediente?\n\nNúmero de Informe: ${numInforme}\nOT: ${ot}\nCliente: ${cliente}\n\n¿Deseas continuar?`);
+
+    if (!confirmar) {
+      return;
+    }
 
     // Validaciones
     const ot = document.getElementById('field-ot').value.trim();
@@ -888,6 +923,10 @@
           <strong style="font-size: 16px; color: var(--primary);">Número de Informe: ${escapeHtml(found.numInforme || numInforme)}</strong><br>
           <small>Tipo: ${escapeHtml(tipoOrden)}</small><br>
           <small><a class="clean" href="${found.linkDrive}" target="_blank">📁 Abrir carpeta en Drive</a></small>`;
+
+        // Mostrar ventana emergente con el número de informe
+        alert(`✅ EXPEDIENTE CREADO EXITOSAMENTE\n\nEl número de informe es:\n${found.numInforme || numInforme}\n\nTipo: ${tipoOrden}\n\nPuedes acceder a la carpeta desde el enlace en pantalla.`);
+
         limpiarFormulario();
       } else {
         status.className = 'status-msg status-error';
@@ -923,6 +962,9 @@
     document.getElementById('info-campo').innerHTML = '';
     document.getElementById('info-croquis').innerHTML = '';
     document.getElementById('info-otros').innerHTML = '';
+    document.getElementById('total-size-indicator').style.display = 'none';
+    document.getElementById('progress-fill').style.width = '0%';
+    validarProgreso();
   }
 
   // 9) EXPORTAR TABLERO A EXCEL
@@ -1202,6 +1244,195 @@
       '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
     }[m]));
   }
+
+  // VALIDACIÓN PROGRESIVA DE PASOS
+  function validarProgreso() {
+    // Paso 1: Perfil de Datos
+    const tienePerfil = perfilDataFile !== null;
+
+    // Paso 2: Campos requeridos
+    const tieneOT = document.getElementById('field-ot').value.trim() !== '';
+    const tieneNOM = document.getElementById('field-nom').value.trim() !== '';
+    const tieneFecha = document.getElementById('field-fecha').value.trim() !== '';
+    const tieneCliente = document.getElementById('field-cliente').value.trim() !== '';
+    const tieneNumInforme = document.getElementById('field-num-informe').value.trim() !== '' &&
+                            !document.getElementById('field-num-informe').value.includes('####');
+
+    // Habilitar/Deshabilitar Paso 2
+    const paso2Inputs = [
+      document.getElementById('field-ot'),
+      document.getElementById('field-nom'),
+      document.getElementById('field-capacitacion'),
+      document.getElementById('field-cliente'),
+      document.getElementById('field-solicitante'),
+      document.getElementById('field-rfc'),
+      document.getElementById('field-tel'),
+      document.getElementById('field-dir'),
+      document.getElementById('field-fecha')
+    ];
+
+    paso2Inputs.forEach(input => {
+      if (tienePerfil) {
+        input.disabled = false;
+        input.style.opacity = '1';
+        input.style.cursor = 'auto';
+      } else {
+        input.disabled = true;
+        input.style.opacity = '0.5';
+        input.style.cursor = 'not-allowed';
+      }
+    });
+
+    // Habilitar/Deshabilitar Paso 3
+    const paso2Completo = tienePerfil && tieneOT && tieneNOM && tieneFecha && tieneCliente && tieneNumInforme;
+
+    const paso3Inputs = [
+      document.getElementById('up-ot'),
+      document.getElementById('up-campo'),
+      document.getElementById('up-croquis'),
+      document.getElementById('up-otros')
+    ];
+
+    paso3Inputs.forEach(input => {
+      if (paso2Completo) {
+        input.disabled = false;
+        input.parentElement.style.opacity = '1';
+        input.parentElement.style.cursor = 'pointer';
+      } else {
+        input.disabled = true;
+        input.parentElement.style.opacity = '0.5';
+        input.parentElement.style.cursor = 'not-allowed';
+      }
+    });
+
+    // Habilitar/Deshabilitar botón de envío
+    const btnEnviar = document.getElementById('btn-enviar');
+    if (paso2Completo) {
+      btnEnviar.disabled = false;
+      btnEnviar.style.opacity = '1';
+      btnEnviar.style.cursor = 'pointer';
+    } else {
+      btnEnviar.disabled = true;
+      btnEnviar.style.opacity = '0.5';
+      btnEnviar.style.cursor = 'not-allowed';
+    }
+
+    // Actualizar indicadores visuales de los pasos
+    actualizarIndicadoresPaso(tienePerfil, paso2Completo);
+
+    // Actualizar barra de progreso
+    actualizarBarraProgreso(tienePerfil, paso2Completo);
+
+    // Calcular tamaño total de archivos
+    calcularTamanoTotal();
+  }
+
+  function actualizarIndicadoresPaso(paso1Completo, paso2Completo) {
+    // Paso 1
+    const cardPaso1 = document.querySelector('.card:nth-child(1)');
+    if (paso1Completo) {
+      cardPaso1.style.borderLeft = '3px solid #0f5132';
+      cardPaso1.querySelector('.card-title').innerHTML = '✅ PASO 1: Perfil de Datos (Completado)';
+    } else {
+      cardPaso1.style.borderLeft = '3px solid var(--accent)';
+      cardPaso1.querySelector('.card-title').innerHTML = '📗 PASO 1: Perfil de Datos';
+    }
+
+    // Paso 2
+    const cardPaso2 = document.querySelector('.card:nth-child(2)');
+    if (paso2Completo) {
+      cardPaso2.style.borderLeft = '3px solid #0f5132';
+      cardPaso2.querySelector('.card-title').innerHTML = '✅ PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (Completado)';
+    } else if (paso1Completo) {
+      cardPaso2.style.borderLeft = '3px solid #ffc107';
+      cardPaso2.querySelector('.card-title').innerHTML = '⏳ PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (En progreso)';
+    } else {
+      cardPaso2.style.borderLeft = '3px solid #adb5bd';
+      cardPaso2.querySelector('.card-title').innerHTML = '📝 PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (Bloqueado)';
+    }
+
+    // Paso 3
+    const cardPaso3 = document.querySelector('.card:nth-child(3)');
+    if (paso2Completo) {
+      cardPaso3.style.borderLeft = '3px solid #ffc107';
+      cardPaso3.querySelector('.card-title').innerHTML = '⏳ PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL (Disponible)';
+    } else {
+      cardPaso3.style.borderLeft = '3px solid #adb5bd';
+      cardPaso3.querySelector('.card-title').innerHTML = '📂 PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL (Bloqueado)';
+    }
+  }
+
+  function actualizarBarraProgreso(paso1Completo, paso2Completo) {
+    const progressFill = document.getElementById('progress-fill');
+    let progreso = 0;
+
+    if (paso1Completo) progreso = 33;
+    if (paso2Completo) progreso = 66;
+
+    // Si hay archivos adjuntos, 100%
+    const tieneArchivos = document.getElementById('up-ot').files.length > 0 ||
+                          document.getElementById('up-campo').files.length > 0 ||
+                          document.getElementById('up-croquis').files.length > 0 ||
+                          document.getElementById('up-otros').files.length > 0;
+
+    if (paso2Completo && tieneArchivos) progreso = 100;
+
+    progressFill.style.width = progreso + '%';
+  }
+
+  function calcularTamanoTotal() {
+    const indicator = document.getElementById('total-size-indicator');
+    const totalSizeSpan = document.getElementById('total-size');
+
+    let totalBytes = 0;
+
+    // Sumar archivos de OT
+    Array.from(document.getElementById('up-ot').files).forEach(f => totalBytes += f.size);
+
+    // Sumar archivos de Hojas de Campo
+    Array.from(document.getElementById('up-campo').files).forEach(f => totalBytes += f.size);
+
+    // Sumar archivos de Croquis
+    Array.from(document.getElementById('up-croquis').files).forEach(f => totalBytes += f.size);
+
+    // Sumar archivos de Otros
+    Array.from(document.getElementById('up-otros').files).forEach(f => totalBytes += f.size);
+
+    // Sumar perfil de datos (si es archivo Excel)
+    if (perfilDataFile && !perfilDataFile.isGoogleSheet) {
+      totalBytes += perfilDataFile.size;
+    }
+
+    if (totalBytes > 0) {
+      const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+      const totalKB = (totalBytes / 1024).toFixed(2);
+
+      if (totalBytes > 1024 * 1024) {
+        totalSizeSpan.textContent = `${totalMB} MB`;
+      } else {
+        totalSizeSpan.textContent = `${totalKB} KB`;
+      }
+
+      indicator.style.display = 'block';
+
+      // Advertir si es muy grande (más de 50MB)
+      if (totalBytes > 50 * 1024 * 1024) {
+        indicator.style.borderLeftColor = '#ff9800';
+        indicator.style.background = '#fff3e0';
+        totalSizeSpan.textContent += ' ⚠️ (Archivo grande, puede tardar)';
+      } else {
+        indicator.style.borderLeftColor = '#2196F3';
+        indicator.style.background = '#e7f3ff';
+      }
+    } else {
+      indicator.style.display = 'none';
+    }
+  }
+
+  // Inicializar validación al cargar la página
+  document.addEventListener('DOMContentLoaded', () => {
+    validarProgreso();
+  });
 
   // Reloj
   setInterval(() => {
