@@ -45,10 +45,15 @@ function doGet(e) {
       return output_(res, callback);
     }
 
+    if (action === 'getPerfilFromSheet') {
+      const res = getPerfilFromSheetSafe_(e.parameter);
+      return output_(res, callback);
+    }
+
     return output_({
       success: true,
       message: 'Web App OK',
-      actions: ['getTablero (GET)', 'getOrdenes (GET)', 'getConsecutivo (GET)', 'createExpediente (POST)', 'updateEstatus (POST)']
+      actions: ['getTablero (GET)', 'getOrdenes (GET)', 'getConsecutivo (GET)', 'getPerfilFromSheet (GET)', 'createExpediente (POST)', 'updateEstatus (POST)']
     }, callback);
   } catch (err) {
     return output_({ success: false, error: 'doGet fatal: ' + err.message, data: [] }, callback);
@@ -90,12 +95,13 @@ function createExpedienteSafe_(payload) {
     // Validaciones
     if (!info.ot) return { success: false, error: 'Falta OT.' };
     if (!info.numInforme) return { success: false, error: 'Falta número de informe.' };
-    if (!files.length) return { success: false, error: 'No se recibieron archivos.' };
-    if (!files.some(f => f.category === 'ORDEN_TRABAJO')) {
-      return { success: false, error: 'Falta archivo ORDEN_TRABAJO.' };
-    }
-    if (!files.some(f => f.category === 'PERFIL_DATOS')) {
-      return { success: false, error: 'Falta archivo PERFIL_DATOS.' };
+
+    // Perfil de datos puede ser archivo o Google Sheet
+    const tienePerfilArchivo = files.some(f => f.category === 'PERFIL_DATOS');
+    const tienePerfilSheet = info.perfilSheetId && info.perfilSheetId.trim() !== '';
+
+    if (!tienePerfilArchivo && !tienePerfilSheet) {
+      return { success: false, error: 'Falta Perfil de Datos (archivo Excel o Google Sheet).' };
     }
 
     // Usar el número de informe que ya viene generado del frontend
@@ -112,7 +118,8 @@ function createExpedienteSafe_(payload) {
       ORDEN_TRABAJO: expedienteFolder.createFolder('1. ORDEN_TRABAJO'),
       PERFIL_DATOS:  expedienteFolder.createFolder('2. PERFIL_DATOS'),
       HOJAS_CAMPO:   expedienteFolder.createFolder('3. HOJAS_CAMPO'),
-      CROQUIS:       expedienteFolder.createFolder('4. CROQUIS_PLANOS')
+      CROQUIS:       expedienteFolder.createFolder('4. CROQUIS_PLANOS'),
+      OTROS:         expedienteFolder.createFolder('5. OTROS')
     };
 
     // 3) Guardar archivos en sus respectivas carpetas
@@ -131,6 +138,18 @@ function createExpedienteSafe_(payload) {
         Logger.log('Error guardando archivo: ' + file.name + ' - ' + err.message);
       }
     });
+
+    // Si se usó Google Sheet, crear un archivo de texto con el enlace
+    if (tienePerfilSheet) {
+      try {
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${info.perfilSheetId}`;
+        const linkContent = `Perfil de Datos - Google Sheet\n\nEnlace: ${sheetUrl}\n\nID: ${info.perfilSheetId}`;
+        const linkBlob = Utilities.newBlob(linkContent, 'text/plain', 'Perfil_GoogleSheet_Link.txt');
+        folders.PERFIL_DATOS.createFile(linkBlob);
+      } catch (err) {
+        Logger.log('Error guardando link de Google Sheet: ' + err.message);
+      }
+    }
 
     // 4) Registrar en Sheets
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -366,6 +385,39 @@ function getConsecutivoSafe_(params) {
 
 function escapeRegex_(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getPerfilFromSheetSafe_(params) {
+  try {
+    const sheetId = params.sheetId || '';
+
+    if (!sheetId) {
+      return { success: false, error: 'Falta el parámetro sheetId' };
+    }
+
+    // Intentar abrir el Google Sheet
+    let sheet;
+    try {
+      const ss = SpreadsheetApp.openById(sheetId);
+      sheet = ss.getSheets()[0]; // Primera hoja
+    } catch (err) {
+      return { success: false, error: 'No se pudo acceder al Google Sheet. Verifica que el ID sea correcto y que el sheet sea accesible.' };
+    }
+
+    // Leer las mismas celdas que se leen del Excel
+    const data = {
+      solicitante: sheet.getRange('D3').getDisplayValue(),
+      cliente: sheet.getRange('D5').getDisplayValue(),
+      rfc: sheet.getRange('D7').getDisplayValue(),
+      telefono: sheet.getRange('I7').getDisplayValue(),
+      direccion: sheet.getRange('D13').getDisplayValue()  // Cambiado de D11 a D13
+    };
+
+    return { success: true, data };
+  } catch (err) {
+    Logger.log('Error en getPerfilFromSheet: ' + err.message);
+    return { success: false, error: 'getPerfilFromSheet error: ' + err.message };
+  }
 }
 
 function output_(obj, callback) {

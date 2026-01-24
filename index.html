@@ -257,8 +257,12 @@
         <div class="card-title">📗 PASO 1: Perfil de Datos</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>Archivo Excel del Cliente *</label>
+            <label>Archivo Excel del Cliente</label>
             <input type="file" id="excelFile" accept=".xlsx, .xls" style="font-size: 11px;">
+          </div>
+          <div class="form-group">
+            <label>O URL/ID de Google Sheet</label>
+            <input type="text" id="gsheetUrl" placeholder="Pega URL o ID de Google Sheet">
           </div>
           <div class="form-group" style="display: flex; align-items: end;">
             <p class="muted" id="info-perfil-quick" style="font-size: 10px; color: #856404; margin: 0;">⚠️ Sin cargar</p>
@@ -323,9 +327,9 @@
         <div class="card-title">📂 PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>Orden de Trabajo Firmada (PDF) *</label>
+            <label>Orden de Trabajo Firmada (PDF) - Opcional</label>
             <div class="file-zone">
-              <input type="file" id="up-ot" accept=".pdf" required>
+              <input type="file" id="up-ot" accept=".pdf">
             </div>
             <p class="muted" id="info-ot" style="margin-top: 5px; color: #6c757d;"></p>
           </div>
@@ -343,9 +347,16 @@
             </div>
             <p class="muted" id="info-croquis" style="margin-top: 5px; color: #6c757d;"></p>
           </div>
+          <div class="form-group">
+            <label>Otros Archivos (Fotos, Programas, etc.)</label>
+            <div class="file-zone">
+              <input type="file" id="up-otros" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip,.rar">
+            </div>
+            <p class="muted" id="info-otros" style="margin-top: 5px; color: #6c757d;"></p>
+          </div>
           <div class="form-group full" style="background: #fff3cd; padding: 12px; border-radius: 5px; border: 1px solid #ffc107;">
-            <label style="color: #856404;">📗 Perfil de Datos (Excel)</label>
-            <p class="muted" id="info-perfil" style="margin-top: 5px; color: #856404;">⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel en el PASO 1.</p>
+            <label style="color: #856404;">📗 Perfil de Datos (Excel o Google Sheet)</label>
+            <p class="muted" id="info-perfil" style="margin-top: 5px; color: #856404;">⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel o Google Sheet en el PASO 1.</p>
           </div>
         </div>
       </div>
@@ -441,7 +452,7 @@
     'LEY-SILLA', 'PIPC'
   ];
 
-  // 1) PERFIL DE DATOS (EXCEL)
+  // 1) PERFIL DE DATOS (EXCEL O GOOGLE SHEETS)
   document.getElementById('excelFile').addEventListener('change', function(e) {
     const file = e.target.files[0];
     const infoQuick = document.getElementById('info-perfil-quick');
@@ -458,6 +469,9 @@
       return;
     }
 
+    // Limpiar Google Sheet si se carga Excel
+    document.getElementById('gsheetUrl').value = '';
+
     perfilDataFile = file;
 
     const reader = new FileReader();
@@ -472,7 +486,7 @@
       document.getElementById('field-cliente').value = getVal('D5');
       document.getElementById('field-rfc').value = getVal('D7');
       document.getElementById('field-tel').value = getVal('I7');
-      document.getElementById('field-dir').value = getVal('D11');
+      document.getElementById('field-dir').value = getVal('D13');  // Cambiado de D11 a D13
 
       // Actualizar indicadores
       infoQuick.innerHTML = `✅ ${file.name.substring(0, 20)}...`;
@@ -484,6 +498,69 @@
       }
     };
     reader.readAsArrayBuffer(file);
+  });
+
+  // GOOGLE SHEETS
+  document.getElementById('gsheetUrl').addEventListener('change', function(e) {
+    const url = e.target.value.trim();
+    const infoQuick = document.getElementById('info-perfil-quick');
+    const infoPerfil = document.getElementById('info-perfil');
+
+    if (!url) {
+      return;
+    }
+
+    // Limpiar Excel si se ingresa Google Sheet
+    document.getElementById('excelFile').value = '';
+
+    // Extraer ID de la URL o usar directamente si es solo ID
+    let sheetId = url;
+    const urlMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (urlMatch) {
+      sheetId = urlMatch[1];
+    }
+
+    // Mostrar cargando
+    infoQuick.innerHTML = '⏳ Cargando Google Sheet...';
+    infoQuick.style.color = '#856404';
+
+    // Llamar al backend para leer Google Sheet
+    jsonp(`${SCRIPT_URL}?action=getPerfilFromSheet&sheetId=${sheetId}`, (result) => {
+      if (result && result.success && result.data) {
+        const data = result.data;
+
+        document.getElementById('field-solicitante').value = data.solicitante || '';
+        document.getElementById('field-cliente').value = data.cliente || '';
+        document.getElementById('field-rfc').value = data.rfc || '';
+        document.getElementById('field-tel').value = data.telefono || '';
+        document.getElementById('field-dir').value = data.direccion || '';
+
+        // Marcar que se cargó un Google Sheet (simular archivo)
+        perfilDataFile = { name: `GoogleSheet_${sheetId}`, type: 'application/vnd.google-apps.spreadsheet', isGoogleSheet: true, sheetId: sheetId };
+
+        infoQuick.innerHTML = '✅ Google Sheet cargado';
+        infoQuick.style.color = '#0f5132';
+
+        if (infoPerfil) {
+          infoPerfil.innerHTML = `✅ Perfil cargado desde Google Sheets`;
+          infoPerfil.style.color = '#0f5132';
+        }
+      } else {
+        infoQuick.innerHTML = '❌ Error al cargar Google Sheet';
+        infoQuick.style.color = '#dc3545';
+
+        if (infoPerfil) {
+          infoPerfil.innerHTML = `❌ Error: ${result.error || 'No se pudo leer el Google Sheet'}`;
+          infoPerfil.style.color = '#dc3545';
+        }
+
+        alert(`❌ Error al cargar Google Sheet:\n${result.error || 'Verifica que el ID/URL sea correcto y que el sheet sea accesible.'}`);
+      }
+    }, () => {
+      infoQuick.innerHTML = '❌ Error de conexión';
+      infoQuick.style.color = '#dc3545';
+      alert('❌ Error de conexión al intentar leer el Google Sheet.');
+    });
   });
 
   // 2) DETECCIÓN DE TIPO DE ORDEN Y ACTUALIZACIÓN DE NOMs
@@ -530,7 +607,38 @@
     // Limpiar campo NOM si cambia el tipo
     nomField.value = '';
 
+    // Extraer y auto-llenar fecha de emisión de OT
+    extraerFechaDeOT(ot);
+
     generarNumeroInforme();
+  }
+
+  // Función para extraer fecha de la OT (formato: OT25-0106-001 o OTB26-0126-001)
+  function extraerFechaDeOT(ot) {
+    const fechaField = document.getElementById('field-fecha');
+
+    // Formato: OT[B]YY-MMYY-NNN donde YY=año, MMYY contiene mes
+    const match = ot.match(/OT[B]?(\d{2})-(\d{2})(\d{2})-/);
+
+    if (match) {
+      const anio = parseInt(match[1], 10); // 25 o 26
+      const mes = parseInt(match[2], 10);  // 01-12
+      const anioCompleto = 2000 + anio;    // 2025 o 2026
+
+      // Validar mes
+      if (mes >= 1 && mes <= 12) {
+        // Construir fecha (primer día del mes)
+        const fecha = new Date(anioCompleto, mes - 1, 1);
+        const fechaStr = fecha.toISOString().split('T')[0];
+
+        fechaField.value = fechaStr;
+
+        // Disparar evento change para calcular fecha de entrega
+        fechaField.dispatchEvent(new Event('change'));
+
+        console.log(`Fecha extraída de OT: ${fechaStr} (Año: ${anioCompleto}, Mes: ${mes})`);
+      }
+    }
   }
 
   function generarNumeroInforme() {
@@ -632,6 +740,17 @@
     }
   });
 
+  document.getElementById('up-otros').addEventListener('change', function() {
+    const info = document.getElementById('info-otros');
+    if (this.files.length > 0) {
+      const total = Array.from(this.files).reduce((sum, f) => sum + f.size, 0);
+      info.innerHTML = `✅ <strong>${this.files.length} archivo(s)</strong> seleccionado(s) (${(total / 1024).toFixed(2)} KB)`;
+      info.style.color = '#0f5132';
+    } else {
+      info.innerHTML = '';
+    }
+  });
+
   // 5) TABS
   function changeTab(tabId, e) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -681,13 +800,8 @@
       return;
     }
 
-    if (!otPdf) {
-      alert("⚠️ Por favor adjunta el PDF de la Orden de Trabajo firmada.");
-      return;
-    }
-
     if (!perfilDataFile) {
-      alert("⚠️ Por favor carga el Perfil de Datos (Excel) en el PASO 1.");
+      alert("⚠️ Por favor carga el Perfil de Datos (Excel o Google Sheet) en el PASO 1.");
       return;
     }
 
@@ -727,11 +841,18 @@
         rd.readAsDataURL(file);
       });
 
-      // Adjuntar OT firmada
-      payload.files.push(await fileToB64(otPdf, 'ORDEN_TRABAJO'));
+      // Adjuntar OT firmada (si existe)
+      if (otPdf) {
+        payload.files.push(await fileToB64(otPdf, 'ORDEN_TRABAJO'));
+      }
 
-      // Adjuntar Perfil de Datos
-      payload.files.push(await fileToB64(perfilDataFile, 'PERFIL_DATOS'));
+      // Adjuntar Perfil de Datos (solo si es archivo Excel, no Google Sheet)
+      if (perfilDataFile && !perfilDataFile.isGoogleSheet) {
+        payload.files.push(await fileToB64(perfilDataFile, 'PERFIL_DATOS'));
+      } else if (perfilDataFile && perfilDataFile.isGoogleSheet) {
+        // Si es Google Sheet, agregar referencia al sheetId
+        payload.data.perfilSheetId = perfilDataFile.sheetId;
+      }
 
       // Adjuntar Hojas de Campo
       for (const f of document.getElementById('up-campo').files) {
@@ -741,6 +862,11 @@
       // Adjuntar Croquis/Planos
       for (const f of document.getElementById('up-croquis').files) {
         payload.files.push(await fileToB64(f, 'CROQUIS'));
+      }
+
+      // Adjuntar Otros Archivos
+      for (const f of document.getElementById('up-otros').files) {
+        payload.files.push(await fileToB64(f, 'OTROS'));
       }
 
       await fetch(SCRIPT_URL, {
@@ -789,11 +915,14 @@
     document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
     document.getElementById('btn-enviar').disabled = false;
     perfilDataFile = null;
-    document.getElementById('info-perfil').innerHTML = '⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel en el PASO 1.';
+    document.getElementById('info-perfil').innerHTML = '⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel o Google Sheet en el PASO 1.';
     document.getElementById('info-perfil').style.color = '#856404';
+    document.getElementById('info-perfil-quick').innerHTML = '⚠️ Sin cargar';
+    document.getElementById('info-perfil-quick').style.color = '#856404';
     document.getElementById('info-ot').innerHTML = '';
     document.getElementById('info-campo').innerHTML = '';
     document.getElementById('info-croquis').innerHTML = '';
+    document.getElementById('info-otros').innerHTML = '';
   }
 
   // 9) EXPORTAR TABLERO A EXCEL
