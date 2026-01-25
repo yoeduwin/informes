@@ -1142,7 +1142,7 @@
         }
       }, () => {
         alert(`❌ Error al verificar la actualización. Recargando tablero...`);
-        cargarTableero();
+        cargarTablero();
       });
 
     } catch (err) {
@@ -1334,37 +1334,54 @@
   }
 
   function actualizarIndicadoresPaso(paso1Completo, paso2Completo) {
+    // Obtener todas las tarjetas dentro de section-nuevo
+    const sectionNuevo = document.getElementById('section-nuevo');
+    if (!sectionNuevo) return;
+
+    const cards = sectionNuevo.querySelectorAll('.card');
+    if (cards.length < 3) return;
+
+    const cardPaso1 = cards[0];
+    const cardPaso2 = cards[1];
+    const cardPaso3 = cards[2];
+
     // Paso 1
-    const cardPaso1 = document.querySelector('.card:nth-child(1)');
-    if (paso1Completo) {
-      cardPaso1.style.borderLeft = '3px solid #0f5132';
-      cardPaso1.querySelector('.card-title').innerHTML = '✅ PASO 1: Perfil de Datos (Completado)';
-    } else {
-      cardPaso1.style.borderLeft = '3px solid var(--accent)';
-      cardPaso1.querySelector('.card-title').innerHTML = '📗 PASO 1: Perfil de Datos';
+    if (cardPaso1) {
+      const titlePaso1 = cardPaso1.querySelector('.card-title');
+      if (paso1Completo) {
+        cardPaso1.style.borderLeft = '3px solid #0f5132';
+        if (titlePaso1) titlePaso1.innerHTML = '✅ PASO 1: Perfil de Datos (Completado)';
+      } else {
+        cardPaso1.style.borderLeft = '3px solid var(--accent)';
+        if (titlePaso1) titlePaso1.innerHTML = '📗 PASO 1: Perfil de Datos';
+      }
     }
 
     // Paso 2
-    const cardPaso2 = document.querySelector('.card:nth-child(2)');
-    if (paso2Completo) {
-      cardPaso2.style.borderLeft = '3px solid #0f5132';
-      cardPaso2.querySelector('.card-title').innerHTML = '✅ PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (Completado)';
-    } else if (paso1Completo) {
-      cardPaso2.style.borderLeft = '3px solid #ffc107';
-      cardPaso2.querySelector('.card-title').innerHTML = '⏳ PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (En progreso)';
-    } else {
-      cardPaso2.style.borderLeft = '3px solid #adb5bd';
-      cardPaso2.querySelector('.card-title').innerHTML = '📝 PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (Bloqueado)';
+    if (cardPaso2) {
+      const titlePaso2 = cardPaso2.querySelector('.card-title');
+      if (paso2Completo) {
+        cardPaso2.style.borderLeft = '3px solid #0f5132';
+        if (titlePaso2) titlePaso2.innerHTML = '✅ PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (Completado)';
+      } else if (paso1Completo) {
+        cardPaso2.style.borderLeft = '3px solid #ffc107';
+        if (titlePaso2) titlePaso2.innerHTML = '⏳ PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (En progreso)';
+      } else {
+        cardPaso2.style.borderLeft = '3px solid #adb5bd';
+        if (titlePaso2) titlePaso2.innerHTML = '📝 PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (Bloqueado)';
+      }
     }
 
     // Paso 3
-    const cardPaso3 = document.querySelector('.card:nth-child(3)');
-    if (paso2Completo) {
-      cardPaso3.style.borderLeft = '3px solid #ffc107';
-      cardPaso3.querySelector('.card-title').innerHTML = '⏳ PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL (Disponible)';
-    } else {
-      cardPaso3.style.borderLeft = '3px solid #adb5bd';
-      cardPaso3.querySelector('.card-title').innerHTML = '📂 PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL (Bloqueado)';
+    if (cardPaso3) {
+      const titlePaso3 = cardPaso3.querySelector('.card-title');
+      if (paso2Completo) {
+        cardPaso3.style.borderLeft = '3px solid #ffc107';
+        if (titlePaso3) titlePaso3.innerHTML = '⏳ PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL (Disponible)';
+      } else {
+        cardPaso3.style.borderLeft = '3px solid #adb5bd';
+        if (titlePaso3) titlePaso3.innerHTML = '📂 PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL (Bloqueado)';
+      }
     }
   }
 
@@ -1513,7 +1530,10 @@
 
   function setupDragAndDrop(inputId) {
     const fileInput = document.getElementById(inputId);
+    if (!fileInput) return;
+
     const dropZone = fileInput.parentElement;
+    if (!dropZone) return;
 
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
       dropZone.addEventListener(eventName, preventDefaults, false);
@@ -1540,8 +1560,16 @@
       const dt = e.dataTransfer;
       const files = dt.files;
 
-      // Crear un nuevo FileList con los archivos arrastrados
-      fileInput.files = files;
+      // Usar DataTransfer para asignar archivos al input
+      try {
+        const dataTransfer = new DataTransfer();
+        for (let i = 0; i < files.length; i++) {
+          dataTransfer.items.add(files[i]);
+        }
+        fileInput.files = dataTransfer.files;
+      } catch (err) {
+        console.warn('DataTransfer no soportado, usando método alternativo');
+      }
 
       // Disparar evento change
       fileInput.dispatchEvent(new Event('change', { bubbles: true }));
