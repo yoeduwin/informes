@@ -318,15 +318,11 @@
       <div class="card" style="border-left: 3px solid var(--accent);">
         <div class="card-title">📗 PASO 1: Perfil de Datos</div>
         <div class="form-grid">
-          <div class="form-group">
+          <div class="form-group full">
             <label>Archivo Excel del Cliente</label>
             <input type="file" id="excelFile" accept=".xlsx, .xls" style="font-size: 11px;">
           </div>
-          <div class="form-group">
-            <label>O URL/ID de Google Sheet</label>
-            <input type="text" id="gsheetUrl" placeholder="Pega URL o ID de Google Sheet">
-          </div>
-          <div class="form-group" style="display: flex; align-items: end;">
+          <div class="form-group full" style="display: flex; align-items: end;">
             <p class="muted" id="info-perfil-quick" style="font-size: 10px; color: #856404; margin: 0;">⚠️ Sin cargar</p>
           </div>
         </div>
@@ -340,11 +336,7 @@
             <select id="field-ot" required>
               <option value="">Cargando órdenes de trabajo...</option>
             </select>
-          </div>
-
-          <div class="form-group">
-            <label>Tipo de Orden</label>
-            <input type="text" id="field-tipo-orden" readonly style="background:#e9ecef; font-weight: bold; color: var(--primary);" placeholder="Se detectará automáticamente">
+            <input type="hidden" id="field-tipo-orden">
           </div>
 
           <div class="form-group">
@@ -429,8 +421,8 @@
             <p class="muted" id="info-otros" style="margin-top: 5px; color: #6c757d;"></p>
           </div>
           <div class="form-group full" style="background: #fff3cd; padding: 12px; border-radius: 5px; border: 1px solid #ffc107;">
-            <label style="color: #856404;">📗 Perfil de Datos (Excel o Google Sheet)</label>
-            <p class="muted" id="info-perfil" style="margin-top: 5px; color: #856404;">⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel o Google Sheet en el PASO 1.</p>
+            <label style="color: #856404;">📗 Perfil de Datos (Excel)</label>
+            <p class="muted" id="info-perfil" style="margin-top: 5px; color: #856404;">⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel en el PASO 1.</p>
           </div>
         </div>
       </div>
@@ -560,9 +552,6 @@
 
     console.log('Archivo seleccionado:', file.name, file.size, 'bytes');
 
-    // Limpiar Google Sheet si se carga Excel
-    document.getElementById('gsheetUrl').value = '';
-
     perfilDataFile = file;
 
     const reader = new FileReader();
@@ -616,72 +605,6 @@
     reader.readAsArrayBuffer(file);
   });
 
-  // GOOGLE SHEETS
-  document.getElementById('gsheetUrl').addEventListener('change', function(e) {
-    const url = e.target.value.trim();
-    const infoQuick = document.getElementById('info-perfil-quick');
-    const infoPerfil = document.getElementById('info-perfil');
-
-    if (!url) {
-      return;
-    }
-
-    // Limpiar Excel si se ingresa Google Sheet
-    document.getElementById('excelFile').value = '';
-
-    // Extraer ID de la URL o usar directamente si es solo ID
-    let sheetId = url;
-    const urlMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-    if (urlMatch) {
-      sheetId = urlMatch[1];
-    }
-
-    // Mostrar cargando
-    infoQuick.innerHTML = '⏳ Cargando Google Sheet...';
-    infoQuick.style.color = '#856404';
-
-    // Llamar al backend para leer Google Sheet
-    jsonp(`${SCRIPT_URL}?action=getPerfilFromSheet&sheetId=${sheetId}`, (result) => {
-      if (result && result.success && result.data) {
-        const data = result.data;
-
-        document.getElementById('field-solicitante').value = data.solicitante || '';
-        document.getElementById('field-cliente').value = data.cliente || '';
-        document.getElementById('field-rfc').value = data.rfc || '';
-        document.getElementById('field-tel').value = data.telefono || '';
-        document.getElementById('field-dir').value = data.direccion || '';
-
-        // Marcar que se cargó un Google Sheet (simular archivo)
-        perfilDataFile = { name: `GoogleSheet_${sheetId}`, type: 'application/vnd.google-apps.spreadsheet', isGoogleSheet: true, sheetId: sheetId };
-
-        infoQuick.innerHTML = '✅ Google Sheet cargado';
-        infoQuick.style.color = '#0f5132';
-
-        if (infoPerfil) {
-          infoPerfil.innerHTML = `✅ Perfil cargado desde Google Sheets`;
-          infoPerfil.style.color = '#0f5132';
-        }
-
-        // Validar progreso
-        validarProgreso();
-      } else {
-        infoQuick.innerHTML = '❌ Error al cargar Google Sheet';
-        infoQuick.style.color = '#dc3545';
-
-        if (infoPerfil) {
-          infoPerfil.innerHTML = `❌ Error: ${result.error || 'No se pudo leer el Google Sheet'}`;
-          infoPerfil.style.color = '#dc3545';
-        }
-
-        alert(`❌ Error al cargar Google Sheet:\n${result.error || 'Verifica que el ID/URL sea correcto y que el sheet sea accesible.'}`);
-      }
-    }, () => {
-      infoQuick.innerHTML = '❌ Error de conexión';
-      infoQuick.style.color = '#dc3545';
-      alert('❌ Error de conexión al intentar leer el Google Sheet.');
-    });
-  });
-
   // 2) DETECCIÓN DE TIPO DE ORDEN Y ACTUALIZACIÓN DE NOMs
   function detectarTipoOrden() {
     const ot = document.getElementById('field-ot').value.trim().toUpperCase();
@@ -697,21 +620,20 @@
 
     if (ot.startsWith('OTB')) {
       tipoOrden = 'OTB';
-      tipoOrdenField.value = 'OTB (Serie Independiente)';
-      tipoOrdenField.style.color = '#0d6efd';
       noms = NOMS_OTB;
       console.log('Tipo detectado: OTB, NOMs disponibles:', noms);
     } else if (ot.startsWith('OT')) {
       tipoOrden = 'OT';
-      tipoOrdenField.value = 'OT (Serie Regular)';
-      tipoOrdenField.style.color = 'var(--primary)';
       noms = NOMS_OT;
       console.log('Tipo detectado: OT, NOMs disponibles:', noms);
     } else {
-      tipoOrdenField.value = '';
+      tipoOrden = '';
       noms = [];
       console.log('Tipo no detectado');
     }
+
+    // Guardar en campo oculto
+    tipoOrdenField.value = tipoOrden;
 
     // Actualizar datalist
     datalist.innerHTML = '';
@@ -905,7 +827,7 @@
     }
 
     if (!perfilDataFile) {
-      alert("⚠️ Por favor carga el Perfil de Datos (Excel o Google Sheet) en el PASO 1.");
+      alert("⚠️ Por favor carga el Perfil de Datos (Excel) en el PASO 1.");
       return;
     }
 
@@ -919,7 +841,7 @@
     Array.from(document.getElementById('up-campo').files).forEach(f => totalBytes += f.size);
     Array.from(document.getElementById('up-croquis').files).forEach(f => totalBytes += f.size);
     Array.from(document.getElementById('up-otros').files).forEach(f => totalBytes += f.size);
-    if (perfilDataFile && !perfilDataFile.isGoogleSheet) {
+    if (perfilDataFile) {
       totalBytes += perfilDataFile.size;
     }
 
@@ -968,12 +890,9 @@
         payload.files.push(await fileToB64(otPdf, 'ORDEN_TRABAJO'));
       }
 
-      // Adjuntar Perfil de Datos (solo si es archivo Excel, no Google Sheet)
-      if (perfilDataFile && !perfilDataFile.isGoogleSheet) {
+      // Adjuntar Perfil de Datos
+      if (perfilDataFile) {
         payload.files.push(await fileToB64(perfilDataFile, 'PERFIL_DATOS'));
-      } else if (perfilDataFile && perfilDataFile.isGoogleSheet) {
-        // Si es Google Sheet, agregar referencia al sheetId
-        payload.data.perfilSheetId = perfilDataFile.sheetId;
       }
 
       // Adjuntar Hojas de Campo
@@ -1041,7 +960,7 @@
     document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
     document.getElementById('btn-enviar').disabled = false;
     perfilDataFile = null;
-    document.getElementById('info-perfil').innerHTML = '⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel o Google Sheet en el PASO 1.';
+    document.getElementById('info-perfil').innerHTML = '⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel en el PASO 1.';
     document.getElementById('info-perfil').style.color = '#856404';
     document.getElementById('info-perfil-quick').innerHTML = '⚠️ Sin cargar';
     document.getElementById('info-perfil-quick').style.color = '#856404';
@@ -1485,8 +1404,8 @@
     // Sumar archivos de Otros
     Array.from(document.getElementById('up-otros').files).forEach(f => totalBytes += f.size);
 
-    // Sumar perfil de datos (si es archivo Excel)
-    if (perfilDataFile && !perfilDataFile.isGoogleSheet) {
+    // Sumar perfil de datos
+    if (perfilDataFile) {
       totalBytes += perfilDataFile.size;
     }
 
