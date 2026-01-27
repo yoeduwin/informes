@@ -357,7 +357,11 @@
 
           <div class="form-group full" style="background: #f0f7f3; padding: 12px; border-radius: 5px; border: 1px solid #c3e6cb;">
             <label style="color: var(--primary); margin-bottom: 3px;">N° de Informe (Generado)</label>
-            <input type="text" id="field-num-informe" readonly style="background: white; font-weight: bold; font-size: 15px; color: var(--primary); border: 2px solid var(--primary);" placeholder="Se generará al completar OT y NOM">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="text" id="field-num-informe" readonly style="background: white; font-weight: bold; font-size: 15px; color: var(--primary); border: 2px solid var(--primary); flex: 1;" placeholder="Se generará al completar OT y NOM">
+              <button type="button" id="btn-edit-num-informe" onclick="toggleEditNumInforme()" style="padding: 8px 12px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;" title="Editar número manualmente">✏️ Editar</button>
+            </div>
+            <p class="muted" id="edit-num-informe-hint" style="margin-top: 5px; display: none; color: #856404;">⚠️ Modo edición manual activado. Verifica que el número sea correcto.</p>
           </div>
 
           <div class="form-group">
@@ -705,6 +709,33 @@
     });
   }
 
+  // Toggle para editar el número de informe manualmente
+  function toggleEditNumInforme() {
+    const field = document.getElementById('field-num-informe');
+    const btn = document.getElementById('btn-edit-num-informe');
+    const hint = document.getElementById('edit-num-informe-hint');
+
+    if (field.readOnly) {
+      // Activar edición
+      field.readOnly = false;
+      field.style.background = '#fff3cd';
+      field.style.borderColor = '#ffc107';
+      btn.textContent = '🔒 Bloquear';
+      btn.style.background = '#ffc107';
+      btn.style.color = '#212529';
+      hint.style.display = 'block';
+    } else {
+      // Desactivar edición
+      field.readOnly = true;
+      field.style.background = 'white';
+      field.style.borderColor = 'var(--primary)';
+      btn.textContent = '✏️ Editar';
+      btn.style.background = '#6c757d';
+      btn.style.color = 'white';
+      hint.style.display = 'none';
+    }
+  }
+
   document.getElementById('field-ot').addEventListener('change', detectarTipoOrden);
   document.getElementById('field-nom').addEventListener('input', () => { generarNumeroInforme(); validarProgreso(); });
   document.getElementById('field-nom').addEventListener('change', () => { generarNumeroInforme(); validarProgreso(); });
@@ -779,6 +810,9 @@
     if (tabId === 'tablero') cargarTablero();
   }
 
+  // Límite de tamaño por lote (15 MB antes de Base64, ~20 MB después)
+  const MAX_BATCH_SIZE = 15 * 1024 * 1024;
+
   // 6) POST + confirmación por GET JSONP (busca por OT y devuelve numInforme)
   async function enviarTodo() {
     const btn = document.getElementById('btn-enviar');
@@ -835,26 +869,60 @@
     loader.style.display = 'block';
     status.style.display = 'none';
 
-    // Calcular tamaño total y mostrar estimación
+    // Calcular tamaño total
     let totalBytes = 0;
-    Array.from(document.getElementById('up-ot').files).forEach(f => totalBytes += f.size);
-    Array.from(document.getElementById('up-campo').files).forEach(f => totalBytes += f.size);
-    Array.from(document.getElementById('up-croquis').files).forEach(f => totalBytes += f.size);
-    Array.from(document.getElementById('up-otros').files).forEach(f => totalBytes += f.size);
+    const allFiles = [];
+
+    // Recopilar todos los archivos con su categoría y tamaño
+    if (otPdf) {
+      allFiles.push({ file: otPdf, category: 'ORDEN_TRABAJO', size: otPdf.size });
+      totalBytes += otPdf.size;
+    }
     if (perfilDataFile) {
+      allFiles.push({ file: perfilDataFile, category: 'PERFIL_DATOS', size: perfilDataFile.size });
       totalBytes += perfilDataFile.size;
     }
-
-    const segundosEstimados = Math.ceil((totalBytes / (1024 * 1024)) * 1.5);
-    const loaderMessage = document.getElementById('loader-message');
-    if (segundosEstimados > 10) {
-      loaderMessage.textContent = `Subiendo archivos... Esto puede tomar ~${segundosEstimados < 60 ? segundosEstimados + ' segundos' : Math.ceil(segundosEstimados / 60) + ' minuto(s)'}`;
-    } else {
-      loaderMessage.textContent = 'Subiendo archivos y registrando en Sheets...';
+    for (const f of document.getElementById('up-campo').files) {
+      allFiles.push({ file: f, category: 'HOJAS_CAMPO', size: f.size });
+      totalBytes += f.size;
+    }
+    for (const f of document.getElementById('up-croquis').files) {
+      allFiles.push({ file: f, category: 'CROQUIS', size: f.size });
+      totalBytes += f.size;
+    }
+    for (const f of document.getElementById('up-otros').files) {
+      allFiles.push({ file: f, category: 'OTROS', size: f.size });
+      totalBytes += f.size;
     }
 
+    const loaderMessage = document.getElementById('loader-message');
+    const useBatchUpload = totalBytes > MAX_BATCH_SIZE;
+
+    if (useBatchUpload) {
+      loaderMessage.textContent = 'Subiendo archivos en lotes (archivos grandes detectados)...';
+    } else {
+      const segundosEstimados = Math.ceil((totalBytes / (1024 * 1024)) * 1.5);
+      if (segundosEstimados > 10) {
+        loaderMessage.textContent = `Subiendo archivos... Esto puede tomar ~${segundosEstimados < 60 ? segundosEstimados + ' segundos' : Math.ceil(segundosEstimados / 60) + ' minuto(s)'}`;
+      } else {
+        loaderMessage.textContent = 'Subiendo archivos y registrando en Sheets...';
+      }
+    }
+
+    const fileToB64 = (file, cat) => new Promise((resolve, reject) => {
+      const rd = new FileReader();
+      rd.onerror = () => reject(new Error('No se pudo leer el archivo: ' + file.name));
+      rd.onload = () => resolve({
+        name: file.name,
+        type: file.type,
+        content: rd.result.split(',')[1],
+        category: cat
+      });
+      rd.readAsDataURL(file);
+    });
+
     try {
-      const payload = {
+      const basePayload = {
         action: 'createExpediente',
         data: {
           ot,
@@ -873,52 +941,94 @@
         files: []
       };
 
-      const fileToB64 = (file, cat) => new Promise((resolve, reject) => {
-        const rd = new FileReader();
-        rd.onerror = () => reject(new Error('No se pudo leer el archivo: ' + file.name));
-        rd.onload = () => resolve({
-          name: file.name,
-          type: file.type,
-          content: rd.result.split(',')[1],
-          category: cat
+      if (useBatchUpload) {
+        // MODO LOTES: Dividir archivos en grupos más pequeños
+        loaderMessage.textContent = 'Paso 1: Creando expediente...';
+
+        // Archivos prioritarios para el primer envío (OT y Perfil de Datos)
+        const priorityFiles = allFiles.filter(f => f.category === 'ORDEN_TRABAJO' || f.category === 'PERFIL_DATOS');
+        const otherFiles = allFiles.filter(f => f.category !== 'ORDEN_TRABAJO' && f.category !== 'PERFIL_DATOS');
+
+        // Convertir archivos prioritarios
+        for (const item of priorityFiles) {
+          basePayload.files.push(await fileToB64(item.file, item.category));
+        }
+
+        // Enviar primer request para crear expediente
+        await fetch(SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(basePayload)
         });
-        rd.readAsDataURL(file);
-      });
 
-      // Adjuntar OT firmada (si existe)
-      if (otPdf) {
-        payload.files.push(await fileToB64(otPdf, 'ORDEN_TRABAJO'));
+        // Esperar a que se registre el expediente
+        loaderMessage.textContent = 'Verificando registro del expediente...';
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Dividir archivos restantes en lotes
+        const batches = [];
+        let currentBatch = [];
+        let currentBatchSize = 0;
+
+        for (const item of otherFiles) {
+          if (currentBatchSize + item.size > MAX_BATCH_SIZE && currentBatch.length > 0) {
+            batches.push(currentBatch);
+            currentBatch = [];
+            currentBatchSize = 0;
+          }
+          currentBatch.push(item);
+          currentBatchSize += item.size;
+        }
+        if (currentBatch.length > 0) {
+          batches.push(currentBatch);
+        }
+
+        // Subir cada lote
+        for (let i = 0; i < batches.length; i++) {
+          loaderMessage.textContent = `Paso ${i + 2}: Subiendo lote ${i + 1} de ${batches.length}...`;
+
+          const batchPayload = {
+            action: 'addFilesToExpediente',
+            ot: ot,
+            files: []
+          };
+
+          for (const item of batches[i]) {
+            batchPayload.files.push(await fileToB64(item.file, item.category));
+          }
+
+          await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(batchPayload)
+          });
+
+          // Espera entre lotes para no saturar
+          if (i < batches.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
+
+        loaderMessage.textContent = 'Verificando registro final...';
+
+      } else {
+        // MODO NORMAL: Todo en un solo envío
+        for (const item of allFiles) {
+          basePayload.files.push(await fileToB64(item.file, item.category));
+        }
+
+        await fetch(SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(basePayload)
+        });
       }
-
-      // Adjuntar Perfil de Datos
-      if (perfilDataFile) {
-        payload.files.push(await fileToB64(perfilDataFile, 'PERFIL_DATOS'));
-      }
-
-      // Adjuntar Hojas de Campo
-      for (const f of document.getElementById('up-campo').files) {
-        payload.files.push(await fileToB64(f, 'HOJAS_CAMPO'));
-      }
-
-      // Adjuntar Croquis/Planos
-      for (const f of document.getElementById('up-croquis').files) {
-        payload.files.push(await fileToB64(f, 'CROQUIS'));
-      }
-
-      // Adjuntar Otros Archivos
-      for (const f of document.getElementById('up-otros').files) {
-        payload.files.push(await fileToB64(f, 'OTROS'));
-      }
-
-      await fetch(SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      });
 
       // Confirmar en tablero (por OT) y traer numInforme + link
-      const found = await esperarRegistroEnTableroPorOT(ot, 25, 2000);
+      const found = await esperarRegistroEnTableroPorOT(ot, 30, 2000);
 
       loader.style.display = 'none';
       status.style.display = 'block';
@@ -928,6 +1038,7 @@
         status.innerHTML = `✅ EXPEDIENTE REGISTRADO EXITOSAMENTE<br>
           <strong style="font-size: 16px; color: var(--primary);">Número de Informe: ${escapeHtml(found.numInforme || numInforme)}</strong><br>
           <small>Tipo: ${escapeHtml(tipoOrden)}</small><br>
+          ${useBatchUpload ? '<small style="color: #28a745;">Archivos subidos en lotes correctamente</small><br>' : ''}
           <small><a class="clean" href="${found.linkDrive}" target="_blank">📁 Abrir carpeta en Drive</a></small>`;
 
         // Mostrar ventana emergente con el número de informe
@@ -1438,14 +1549,16 @@
 
       indicator.style.display = 'block';
 
-      // Advertir si es muy grande (más de 50MB)
-      if (totalBytes > 50 * 1024 * 1024) {
-        indicator.style.borderLeftColor = '#ff9800';
-        indicator.style.background = '#fff3e0';
-        totalSizeSpan.textContent += ' ⚠️ (Archivo grande, puede tardar)';
+      // Indicar modo de subida según tamaño
+      if (totalBytes > MAX_BATCH_SIZE) {
+        // Se usará subida en lotes
+        indicator.style.borderLeftColor = '#17a2b8';
+        indicator.style.background = '#d1ecf1';
+        const numLotes = Math.ceil(totalBytes / MAX_BATCH_SIZE);
+        totalSizeSpan.textContent += ` 📦 (Se subirá en ~${numLotes} lotes)`;
       } else {
-        indicator.style.borderLeftColor = '#2196F3';
-        indicator.style.background = '#e7f3ff';
+        indicator.style.borderLeftColor = '#28a745';
+        indicator.style.background = '#d4edda';
       }
     } else {
       indicator.style.display = 'none';

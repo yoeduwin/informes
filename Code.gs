@@ -77,6 +77,11 @@ function doPost(e) {
       return output_(res);
     }
 
+    if (data.action === 'addFilesToExpediente') {
+      const res = addFilesToExpedienteSafe_(data);
+      return output_(res);
+    }
+
     return output_({ success: false, error: 'Acción no soportada: ' + String(data.action) });
   } catch (err) {
     return output_({ success: false, error: 'doPost fatal: ' + err.message });
@@ -197,6 +202,114 @@ function createExpedienteSafe_(payload) {
   } catch (err) {
     Logger.log('Error en createExpediente: ' + err.message);
     return { success: false, error: 'createExpediente error: ' + err.message };
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+// Función para agregar archivos a un expediente existente (para subidas en lotes)
+function addFilesToExpedienteSafe_(payload) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(30000);
+
+    const ot = payload.ot;
+    const files = payload.files || [];
+
+    if (!ot) return { success: false, error: 'Falta OT para identificar expediente.' };
+    if (!files.length) return { success: false, error: 'No hay archivos para subir.' };
+
+    // Buscar la carpeta del expediente en el tablero
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) return { success: false, error: `No existe la hoja "${SHEET_NAME}".` };
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const otIndex = headers.indexOf('OT');
+    const linkIndex = headers.indexOf('LinkDrive');
+
+    if (otIndex === -1 || linkIndex === -1) {
+      return { success: false, error: 'Estructura de hoja incorrecta.' };
+    }
+
+    let driveLink = null;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][otIndex]).trim() === String(ot).trim()) {
+        driveLink = data[i][linkIndex];
+        break;
+      }
+    }
+
+    if (!driveLink) {
+      return { success: false, error: 'No se encontró el expediente con OT: ' + ot };
+    }
+
+    // Extraer el ID de la carpeta del link
+    const folderIdMatch = driveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
+    if (!folderIdMatch) {
+      return { success: false, error: 'No se pudo extraer ID de carpeta de: ' + driveLink };
+    }
+
+    const expedienteFolder = DriveApp.getFolderById(folderIdMatch[1]);
+
+    // Obtener o crear las subcarpetas
+    const subfolderNames = {
+      ORDEN_TRABAJO: '1. ORDEN_TRABAJO',
+      PERFIL_DATOS: '2. PERFIL_DATOS',
+      HOJAS_CAMPO: '3. HOJAS_CAMPO',
+      CROQUIS: '4. CROQUIS_PLANOS',
+      OTROS: '5. OTROS'
+    };
+
+    const folders = {};
+    const existingFolders = expedienteFolder.getFolders();
+    while (existingFolders.hasNext()) {
+      const f = existingFolders.next();
+      for (const [key, name] of Object.entries(subfolderNames)) {
+        if (f.getName() === name) {
+          folders[key] = f;
+          break;
+        }
+      }
+    }
+
+    // Crear subcarpetas faltantes
+    for (const [key, name] of Object.entries(subfolderNames)) {
+      if (!folders[key]) {
+        folders[key] = expedienteFolder.createFolder(name);
+      }
+    }
+
+    // Guardar archivos
+    let savedCount = 0;
+    files.forEach(file => {
+      if (!file || !file.content) return;
+      try {
+        const decoded = Utilities.base64Decode(file.content);
+        const blob = Utilities.newBlob(
+          decoded,
+          file.type || 'application/octet-stream',
+          file.name || 'archivo'
+        );
+        const targetFolder = folders[file.category] || expedienteFolder;
+        targetFolder.createFile(blob);
+        savedCount++;
+      } catch (err) {
+        Logger.log('Error guardando archivo en lote: ' + file.name + ' - ' + err.message);
+      }
+    });
+
+    return {
+      success: true,
+      message: `Se agregaron ${savedCount} archivo(s) al expediente.`,
+      ot: ot
+    };
+
+  } catch (err) {
+    Logger.log('Error en addFilesToExpediente: ' + err.message);
+    return { success: false, error: 'addFilesToExpediente error: ' + err.message };
   } finally {
     try { lock.releaseLock(); } catch (_) {}
   }
