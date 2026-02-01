@@ -63,10 +63,45 @@
     .card {
       border: 1px solid #e0e0e0;
       border-radius: 6px;
-      padding: 16px;
       margin-bottom: 16px;
       background: white;
+      overflow: hidden;
     }
+
+    /* Estilos de sección estilo generador-ordenes-trabajo */
+    .section-header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-header .step-badge {
+      background: rgba(255,255,255,0.2);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .section-header.completed {
+      background: linear-gradient(135deg, #0f5132, #198754);
+    }
+    .section-header.pending {
+      background: linear-gradient(135deg, #6c757d, #adb5bd);
+    }
+    .section-header.in-progress {
+      background: linear-gradient(135deg, #856404, #ffc107);
+      color: #212529;
+    }
+    .section-content {
+      padding: 16px;
+    }
+
     .card-title {
       font-weight: 600;
       color: var(--dark);
@@ -79,6 +114,36 @@
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+
+    /* Indicador de celda Excel */
+    .excel-cell-indicator {
+      display: inline-block;
+      background: #e7f3ff;
+      color: #0d6efd;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      font-family: 'Consolas', 'Monaco', monospace;
+      margin-left: 5px;
+    }
+
+    /* Campos extraídos del Excel */
+    .excel-extracted {
+      position: relative;
+    }
+    .excel-extracted input {
+      background: #f0f7f3;
+      border-color: #198754;
+    }
+    .excel-extracted::after {
+      content: "📗";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
     }
 
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
@@ -315,118 +380,199 @@
         <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
       </div>
 
-      <div class="card" style="border-left: 3px solid var(--accent);">
-        <div class="card-title">📗 PASO 1: Perfil de Datos</div>
-        <div class="form-grid">
-          <div class="form-group full">
-            <label>Archivo Excel del Cliente</label>
-            <input type="file" id="excelFile" accept=".xlsx, .xls" style="font-size: 11px;">
+      <div class="card" id="card-paso1">
+        <div class="section-header" id="header-paso1">
+          <span class="step-badge">PASO 1</span>
+          📗 Perfil de Datos del Cliente
+        </div>
+        <div class="section-content">
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>Archivo Excel del Cliente (.xlsx, .xls)</label>
+              <div class="file-zone" style="padding: 15px;">
+                <input type="file" id="excelFile" accept=".xlsx, .xls" style="font-size: 12px;">
+                <p style="margin: 8px 0 0 0; font-size: 10px; color: #6c757d;">
+                  Arrastra o selecciona el archivo de perfil del cliente
+                </p>
+              </div>
+            </div>
           </div>
-          <div class="form-group full" style="display: flex; align-items: end;">
-            <p class="muted" id="info-perfil-quick" style="font-size: 10px; color: #856404; margin: 0;">⚠️ Sin cargar</p>
+
+          <!-- Indicador de estado del perfil -->
+          <div id="perfil-status-box" style="margin-top: 12px; padding: 10px; border-radius: 5px; background: #fff3cd; border: 1px solid #ffc107;">
+            <p id="info-perfil-quick" style="font-size: 11px; color: #856404; margin: 0; font-weight: 600;">
+              ⚠️ Sin cargar - Selecciona el archivo Excel del cliente
+            </p>
+          </div>
+
+          <!-- Campos extraídos (solo visibles cuando se carga el perfil) -->
+          <div id="campos-extraidos" style="display: none; margin-top: 15px; padding: 12px; background: #f0f7f3; border-radius: 5px; border: 1px solid #198754;">
+            <p style="font-size: 10px; font-weight: 700; color: #0f5132; margin: 0 0 10px 0; text-transform: uppercase;">
+              📊 Datos extraídos del Excel:
+            </p>
+            <div class="form-grid" style="gap: 8px;">
+              <div class="form-group">
+                <label>Solicitante <span class="excel-cell-indicator">D3</span></label>
+                <input type="text" id="preview-solicitante" readonly style="background: white; font-size: 11px;">
+              </div>
+              <div class="form-group">
+                <label>Cliente / Razón Social <span class="excel-cell-indicator">D5</span></label>
+                <input type="text" id="preview-cliente" readonly style="background: white; font-size: 11px;">
+              </div>
+              <div class="form-group">
+                <label>RFC <span class="excel-cell-indicator">D7</span></label>
+                <input type="text" id="preview-rfc" readonly style="background: white; font-size: 11px;">
+              </div>
+              <div class="form-group">
+                <label>Teléfono <span class="excel-cell-indicator">I7</span></label>
+                <input type="text" id="preview-tel" readonly style="background: white; font-size: 11px;">
+              </div>
+              <div class="form-group full">
+                <label>Dirección <span class="excel-cell-indicator">D13</span></label>
+                <input type="text" id="preview-dir" readonly style="background: white; font-size: 11px;">
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">📝 PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>N° Orden de Trabajo (OT/OTB) *</label>
-            <select id="field-ot" required>
-              <option value="">Cargando órdenes de trabajo...</option>
-            </select>
-            <input type="hidden" id="field-tipo-orden">
-          </div>
-
-          <div class="form-group">
-            <label>NOM / Servicio *</label>
-            <input type="text" id="field-nom" list="nom-list" required placeholder="Escribe o selecciona..." autocomplete="off">
-            <datalist id="nom-list">
-              <!-- Se llena dinámicamente según OT/OTB -->
-            </datalist>
-          </div>
-
-          <div class="form-group">
-            <label style="display: flex; align-items: center; gap: 5px;">
-              <input type="checkbox" id="field-capacitacion" style="width: auto; margin: 0;">
-              ¿Es Capacitación? (CAP)
-            </label>
-            <p class="muted" style="margin-top: 5px;">Si es OTB de capacitación, marcarlo aquí</p>
-          </div>
-
-          <div class="form-group full" style="background: #f0f7f3; padding: 12px; border-radius: 5px; border: 1px solid #c3e6cb;">
-            <label style="color: var(--primary); margin-bottom: 3px;">N° de Informe (Generado)</label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input type="text" id="field-num-informe" readonly style="background: white; font-weight: bold; font-size: 15px; color: var(--primary); border: 2px solid var(--primary); flex: 1;" placeholder="Se generará al completar OT y NOM">
-              <button type="button" id="btn-edit-num-informe" onclick="toggleEditNumInforme()" style="padding: 8px 12px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;" title="Editar número manualmente">✏️ Editar</button>
+      <div class="card" id="card-paso2">
+        <div class="section-header pending" id="header-paso2">
+          <span class="step-badge">PASO 2</span>
+          📝 Información del Servicio
+        </div>
+        <div class="section-content">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="required-field">N° Orden de Trabajo (OT/OTB)</label>
+              <select id="field-ot" required>
+                <option value="">Cargando órdenes de trabajo...</option>
+              </select>
+              <input type="hidden" id="field-tipo-orden">
             </div>
-            <p class="muted" id="edit-num-informe-hint" style="margin-top: 5px; display: none; color: #856404;">⚠️ Modo edición manual activado. Verifica que el número sea correcto.</p>
+
+            <div class="form-group">
+              <label class="required-field">NOM / Servicio</label>
+              <input type="text" id="field-nom" list="nom-list" required placeholder="Escribe o selecciona..." autocomplete="off">
+              <datalist id="nom-list">
+                <!-- Se llena dinámicamente según OT/OTB -->
+              </datalist>
+            </div>
+
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="field-capacitacion" style="width: auto; margin: 0;">
+                ¿Es Capacitación? (CAP)
+              </label>
+              <p class="muted" style="margin-top: 5px;">Marcar si es OTB de capacitación</p>
+            </div>
+
+            <div class="form-group full" style="background: linear-gradient(135deg, #f0f7f3, #e8f5e9); padding: 15px; border-radius: 6px; border: 2px solid var(--primary);">
+              <label style="color: var(--primary); margin-bottom: 6px; font-size: 11px;">N° DE INFORME (GENERADO AUTOMÁTICAMENTE)</label>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" id="field-num-informe" readonly style="background: white; font-weight: bold; font-size: 16px; color: var(--primary); border: 2px solid var(--primary); flex: 1; padding: 10px;" placeholder="Se generará al completar OT y NOM">
+                <button type="button" id="btn-edit-num-informe" onclick="toggleEditNumInforme()" style="padding: 10px 15px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600;" title="Editar número manualmente">✏️ Editar</button>
+              </div>
+              <p class="muted" id="edit-num-informe-hint" style="margin-top: 8px; display: none; color: #856404; font-weight: 600;">⚠️ Modo edición manual activado. Verifica que el número sea correcto.</p>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label>Empresa / Razón Social *</label>
-            <input type="text" id="field-cliente" required>
+          <!-- Separador visual -->
+          <div style="border-top: 1px dashed #dee2e6; margin: 20px 0; position: relative;">
+            <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-size: 10px; color: #6c757d; text-transform: uppercase;">Datos del Cliente</span>
           </div>
-          <div class="form-group">
-            <label>Solicitante</label>
-            <input type="text" id="field-solicitante">
-          </div>
-          <div class="form-group">
-            <label>RFC</label>
-            <input type="text" id="field-rfc" placeholder="Auto-llenado del perfil">
-          </div>
-          <div class="form-group">
-            <label>Teléfono</label>
-            <input type="text" id="field-tel" placeholder="Auto-llenado del perfil">
-          </div>
-          <div class="form-group full"><label>Dirección del Centro de Trabajo</label><input type="text" id="field-dir"></div>
 
-          <div class="form-group">
-            <label>Fecha de Emisión de OT (Fecha de Servicio) *</label>
-            <input type="date" id="field-fecha" required>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="required-field">Empresa / Razón Social <span class="excel-cell-indicator">D5</span></label>
+              <input type="text" id="field-cliente" required data-excel="D5">
+            </div>
+            <div class="form-group">
+              <label>Solicitante <span class="excel-cell-indicator">D3</span></label>
+              <input type="text" id="field-solicitante" data-excel="D3">
+            </div>
+            <div class="form-group">
+              <label>RFC <span class="excel-cell-indicator">D7</span></label>
+              <input type="text" id="field-rfc" data-excel="D7">
+            </div>
+            <div class="form-group">
+              <label>Teléfono <span class="excel-cell-indicator">I7</span></label>
+              <input type="text" id="field-tel" data-excel="I7">
+            </div>
+            <div class="form-group full">
+              <label>Dirección del Centro de Trabajo <span class="excel-cell-indicator">D13</span></label>
+              <input type="text" id="field-dir" data-excel="D13">
+            </div>
           </div>
-          <div class="form-group">
-            <label>Fecha Compromiso de Entrega (+15 días)</label>
-            <input type="date" id="field-entrega" readonly style="background:#e9ecef;">
+
+          <!-- Separador visual -->
+          <div style="border-top: 1px dashed #dee2e6; margin: 20px 0; position: relative;">
+            <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-size: 10px; color: #6c757d; text-transform: uppercase;">Fechas</span>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="required-field">Fecha de Emisión de OT (Fecha de Servicio)</label>
+              <input type="date" id="field-fecha" required>
+            </div>
+            <div class="form-group">
+              <label>Fecha Compromiso de Entrega (+15 días)</label>
+              <input type="date" id="field-entrega" readonly style="background:#e9ecef; color: #495057;">
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">📂 PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Orden de Trabajo Firmada (PDF) - Opcional</label>
-            <div class="file-zone">
-              <input type="file" id="up-ot" accept=".pdf">
+      <div class="card" id="card-paso3">
+        <div class="section-header pending" id="header-paso3">
+          <span class="step-badge">PASO 3</span>
+          📂 Documentación Digital (Opcional)
+        </div>
+        <div class="section-content">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Orden de Trabajo Firmada (PDF)</label>
+              <div class="file-zone">
+                <input type="file" id="up-ot" accept=".pdf">
+                <p style="margin: 5px 0 0 0; font-size: 9px; color: #6c757d;">Solo PDF</p>
+              </div>
+              <p class="muted" id="info-ot" style="margin-top: 5px; color: #6c757d;"></p>
             </div>
-            <p class="muted" id="info-ot" style="margin-top: 5px; color: #6c757d;"></p>
-          </div>
-          <div class="form-group">
-            <label>Hojas de Campo (Múltiples archivos)</label>
-            <div class="file-zone">
-              <input type="file" id="up-campo" multiple accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls">
+            <div class="form-group">
+              <label>Hojas de Campo (Múltiples)</label>
+              <div class="file-zone">
+                <input type="file" id="up-campo" multiple accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls">
+                <p style="margin: 5px 0 0 0; font-size: 9px; color: #6c757d;">PDF, JPG, PNG, Excel</p>
+              </div>
+              <p class="muted" id="info-campo" style="margin-top: 5px; color: #6c757d;"></p>
             </div>
-            <p class="muted" id="info-campo" style="margin-top: 5px; color: #6c757d;"></p>
-          </div>
-          <div class="form-group">
-            <label>Croquis / Planos (Múltiples archivos)</label>
-            <div class="file-zone">
-              <input type="file" id="up-croquis" multiple accept=".pdf,.jpg,.jpeg,.png,.dwg">
+            <div class="form-group">
+              <label>Croquis / Planos (Múltiples)</label>
+              <div class="file-zone">
+                <input type="file" id="up-croquis" multiple accept=".pdf,.jpg,.jpeg,.png,.dwg">
+                <p style="margin: 5px 0 0 0; font-size: 9px; color: #6c757d;">PDF, JPG, PNG, DWG</p>
+              </div>
+              <p class="muted" id="info-croquis" style="margin-top: 5px; color: #6c757d;"></p>
             </div>
-            <p class="muted" id="info-croquis" style="margin-top: 5px; color: #6c757d;"></p>
-          </div>
-          <div class="form-group">
-            <label>Otros Archivos (Fotos, Programas, etc.)</label>
-            <div class="file-zone">
-              <input type="file" id="up-otros" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip,.rar">
+            <div class="form-group">
+              <label>Otros Archivos</label>
+              <div class="file-zone">
+                <input type="file" id="up-otros" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip,.rar">
+                <p style="margin: 5px 0 0 0; font-size: 9px; color: #6c757d;">Fotos, Documentos, ZIP</p>
+              </div>
+              <p class="muted" id="info-otros" style="margin-top: 5px; color: #6c757d;"></p>
             </div>
-            <p class="muted" id="info-otros" style="margin-top: 5px; color: #6c757d;"></p>
           </div>
-          <div class="form-group full" style="background: #fff3cd; padding: 12px; border-radius: 5px; border: 1px solid #ffc107;">
-            <label style="color: #856404;">📗 Perfil de Datos (Excel)</label>
-            <p class="muted" id="info-perfil" style="margin-top: 5px; color: #856404;">⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel en el PASO 1.</p>
+
+          <!-- Indicador del perfil de datos -->
+          <div id="perfil-adjunto-box" style="margin-top: 15px; padding: 12px; border-radius: 5px; background: #fff3cd; border: 1px solid #ffc107;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 20px;">📗</span>
+              <div>
+                <p style="font-size: 11px; font-weight: 700; color: #856404; margin: 0;">Perfil de Datos (Excel)</p>
+                <p class="muted" id="info-perfil" style="margin-top: 3px; color: #856404; font-size: 10px;">⚠️ No cargado - Sube el archivo en el PASO 1</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -545,11 +691,28 @@
     if (!file) {
       console.log('No hay archivo seleccionado');
       perfilDataFile = null;
-      infoQuick.innerHTML = '⚠️ Sin cargar';
+      infoQuick.innerHTML = '⚠️ Sin cargar - Selecciona el archivo Excel del cliente';
       infoQuick.style.color = '#856404';
+
+      // Restaurar estilos
+      const statusBox = document.getElementById('perfil-status-box');
+      if (statusBox) {
+        statusBox.style.background = '#fff3cd';
+        statusBox.style.borderColor = '#ffc107';
+      }
+
+      // Ocultar campos extraídos
+      document.getElementById('campos-extraidos').style.display = 'none';
+
       if (infoPerfil) {
-        infoPerfil.innerHTML = '⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel en el PASO 1.';
+        infoPerfil.innerHTML = '⚠️ No cargado - Sube el archivo en el PASO 1';
         infoPerfil.style.color = '#856404';
+
+        const perfilAdjuntoBox = document.getElementById('perfil-adjunto-box');
+        if (perfilAdjuntoBox) {
+          perfilAdjuntoBox.style.background = '#fff3cd';
+          perfilAdjuntoBox.style.borderColor = '#ffc107';
+        }
       }
       return;
     }
@@ -582,13 +745,33 @@
         document.getElementById('field-tel').value = tel;
         document.getElementById('field-dir').value = dir;
 
+        // Mostrar campos extraídos en la preview
+        document.getElementById('preview-solicitante').value = solicitante;
+        document.getElementById('preview-cliente').value = cliente;
+        document.getElementById('preview-rfc').value = rfc;
+        document.getElementById('preview-tel').value = tel;
+        document.getElementById('preview-dir').value = dir;
+
+        // Mostrar la sección de campos extraídos
+        document.getElementById('campos-extraidos').style.display = 'block';
+
         // Actualizar indicadores
-        infoQuick.innerHTML = `✅ ${file.name.substring(0, 20)}...`;
+        const statusBox = document.getElementById('perfil-status-box');
+        statusBox.style.background = '#d4edda';
+        statusBox.style.borderColor = '#198754';
+        infoQuick.innerHTML = `✅ <strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB) - Datos extraídos correctamente`;
         infoQuick.style.color = '#0f5132';
 
         if (infoPerfil) {
-          infoPerfil.innerHTML = `✅ Perfil cargado: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB)`;
+          infoPerfil.innerHTML = `✅ <strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB)`;
           infoPerfil.style.color = '#0f5132';
+
+          // Actualizar el box del perfil adjunto
+          const perfilAdjuntoBox = document.getElementById('perfil-adjunto-box');
+          if (perfilAdjuntoBox) {
+            perfilAdjuntoBox.style.background = '#d4edda';
+            perfilAdjuntoBox.style.borderColor = '#198754';
+          }
         }
 
         console.log('Perfil de datos cargado exitosamente');
@@ -1071,16 +1254,44 @@
     document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
     document.getElementById('btn-enviar').disabled = false;
     perfilDataFile = null;
-    document.getElementById('info-perfil').innerHTML = '⚠️ No se ha cargado ningún perfil de datos. Por favor, carga el Excel en el PASO 1.';
+
+    // Restaurar indicadores del perfil
+    document.getElementById('info-perfil').innerHTML = '⚠️ No cargado - Sube el archivo en el PASO 1';
     document.getElementById('info-perfil').style.color = '#856404';
-    document.getElementById('info-perfil-quick').innerHTML = '⚠️ Sin cargar';
+    document.getElementById('info-perfil-quick').innerHTML = '⚠️ Sin cargar - Selecciona el archivo Excel del cliente';
     document.getElementById('info-perfil-quick').style.color = '#856404';
+
+    // Restaurar estilos de los boxes
+    const statusBox = document.getElementById('perfil-status-box');
+    if (statusBox) {
+      statusBox.style.background = '#fff3cd';
+      statusBox.style.borderColor = '#ffc107';
+    }
+
+    const perfilAdjuntoBox = document.getElementById('perfil-adjunto-box');
+    if (perfilAdjuntoBox) {
+      perfilAdjuntoBox.style.background = '#fff3cd';
+      perfilAdjuntoBox.style.borderColor = '#ffc107';
+    }
+
+    // Ocultar campos extraídos
+    document.getElementById('campos-extraidos').style.display = 'none';
+
+    // Limpiar campos de preview
+    document.getElementById('preview-solicitante').value = '';
+    document.getElementById('preview-cliente').value = '';
+    document.getElementById('preview-rfc').value = '';
+    document.getElementById('preview-tel').value = '';
+    document.getElementById('preview-dir').value = '';
+
+    // Limpiar indicadores de archivos
     document.getElementById('info-ot').innerHTML = '';
     document.getElementById('info-campo').innerHTML = '';
     document.getElementById('info-croquis').innerHTML = '';
     document.getElementById('info-otros').innerHTML = '';
     document.getElementById('total-size-indicator').style.display = 'none';
     document.getElementById('progress-fill').style.width = '0%';
+
     validarProgreso();
   }
 
@@ -1445,53 +1656,46 @@
   }
 
   function actualizarIndicadoresPaso(paso1Completo, paso2Completo) {
-    // Obtener todas las tarjetas dentro de section-nuevo
-    const sectionNuevo = document.getElementById('section-nuevo');
-    if (!sectionNuevo) return;
-
-    const cards = sectionNuevo.querySelectorAll('.card');
-    if (cards.length < 3) return;
-
-    const cardPaso1 = cards[0];
-    const cardPaso2 = cards[1];
-    const cardPaso3 = cards[2];
+    // Obtener los headers de sección
+    const headerPaso1 = document.getElementById('header-paso1');
+    const headerPaso2 = document.getElementById('header-paso2');
+    const headerPaso3 = document.getElementById('header-paso3');
 
     // Paso 1
-    if (cardPaso1) {
-      const titlePaso1 = cardPaso1.querySelector('.card-title');
+    if (headerPaso1) {
+      headerPaso1.className = 'section-header';
       if (paso1Completo) {
-        cardPaso1.style.borderLeft = '3px solid #0f5132';
-        if (titlePaso1) titlePaso1.innerHTML = '✅ PASO 1: Perfil de Datos (Completado)';
+        headerPaso1.classList.add('completed');
+        headerPaso1.innerHTML = '<span class="step-badge">✓ PASO 1</span> 📗 Perfil de Datos del Cliente';
       } else {
-        cardPaso1.style.borderLeft = '3px solid var(--accent)';
-        if (titlePaso1) titlePaso1.innerHTML = '📗 PASO 1: Perfil de Datos';
+        headerPaso1.innerHTML = '<span class="step-badge">PASO 1</span> 📗 Perfil de Datos del Cliente';
       }
     }
 
     // Paso 2
-    if (cardPaso2) {
-      const titlePaso2 = cardPaso2.querySelector('.card-title');
+    if (headerPaso2) {
+      headerPaso2.className = 'section-header';
       if (paso2Completo) {
-        cardPaso2.style.borderLeft = '3px solid #0f5132';
-        if (titlePaso2) titlePaso2.innerHTML = '✅ PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (Completado)';
+        headerPaso2.classList.add('completed');
+        headerPaso2.innerHTML = '<span class="step-badge">✓ PASO 2</span> 📝 Información del Servicio';
       } else if (paso1Completo) {
-        cardPaso2.style.borderLeft = '3px solid #ffc107';
-        if (titlePaso2) titlePaso2.innerHTML = '⏳ PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (En progreso)';
+        headerPaso2.classList.add('in-progress');
+        headerPaso2.innerHTML = '<span class="step-badge">PASO 2</span> 📝 Información del Servicio';
       } else {
-        cardPaso2.style.borderLeft = '3px solid #adb5bd';
-        if (titlePaso2) titlePaso2.innerHTML = '📝 PASO 2: VERIFICAR INFORMACIÓN DEL SERVICIO (Bloqueado)';
+        headerPaso2.classList.add('pending');
+        headerPaso2.innerHTML = '<span class="step-badge">PASO 2</span> 🔒 Información del Servicio';
       }
     }
 
     // Paso 3
-    if (cardPaso3) {
-      const titlePaso3 = cardPaso3.querySelector('.card-title');
+    if (headerPaso3) {
+      headerPaso3.className = 'section-header';
       if (paso2Completo) {
-        cardPaso3.style.borderLeft = '3px solid #ffc107';
-        if (titlePaso3) titlePaso3.innerHTML = '⏳ PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL (Disponible)';
+        headerPaso3.classList.add('in-progress');
+        headerPaso3.innerHTML = '<span class="step-badge">PASO 3</span> 📂 Documentación Digital (Opcional)';
       } else {
-        cardPaso3.style.borderLeft = '3px solid #adb5bd';
-        if (titlePaso3) titlePaso3.innerHTML = '📂 PASO 3: ADJUNTAR DOCUMENTACIÓN DIGITAL (Bloqueado)';
+        headerPaso3.classList.add('pending');
+        headerPaso3.innerHTML = '<span class="step-badge">PASO 3</span> 🔒 Documentación Digital';
       }
     }
   }
