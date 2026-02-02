@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1816,7 +1815,6 @@
     const borrador = {
       ot: document.getElementById('field-ot').value,
       nom: document.getElementById('field-nom').value,
-      capacitacion: document.getElementById('field-capacitacion').checked,
       cliente: document.getElementById('field-cliente').value,
       solicitante: document.getElementById('field-solicitante').value,
       rfc: document.getElementById('field-rfc').value,
@@ -1846,7 +1844,6 @@
         if (confirmCargar) {
           document.getElementById('field-ot').value = data.ot || '';
           document.getElementById('field-nom').value = data.nom || '';
-          document.getElementById('field-capacitacion').checked = data.capacitacion || false;
           document.getElementById('field-cliente').value = data.cliente || '';
           document.getElementById('field-solicitante').value = data.solicitante || '';
           document.getElementById('field-rfc').value = data.rfc || '';
