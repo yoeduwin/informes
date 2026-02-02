@@ -10,11 +10,11 @@
 
   <style>
     :root {
-      --primary: #1e5a3e;
-      --secondary: #2d7a4f;
+      --primary: #005600;
+      --secondary: #007800;
       --dark: #2c3e50;
       --light: #f8f9fa;
-      --accent: #217346;
+      --accent: #006400;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -362,7 +362,6 @@
   <div class="header">
     <div>
       <h1>EJECUTIVA AMBIENTAL</h1>
-      <p>Ingeniería, Seguridad e Higiene Industrial</p>
     </div>
     <div id="live-clock" style="font-size: 14px; font-weight: bold;"></div>
   </div>
@@ -412,7 +411,7 @@
             </p>
             <div class="form-grid" style="gap: 8px;">
               <div class="form-group">
-                <label>Solicitante <span class="excel-cell-indicator">D3</span></label>
+                <label>Nombre y puesto del solicitante <span class="excel-cell-indicator">D3</span></label>
                 <input type="text" id="preview-solicitante" readonly style="background: white; font-size: 11px;">
               </div>
               <div class="form-group">
@@ -428,7 +427,7 @@
                 <input type="text" id="preview-tel" readonly style="background: white; font-size: 11px;">
               </div>
               <div class="form-group full">
-                <label>Dirección <span class="excel-cell-indicator">D13</span></label>
+                <label>Dirección <span class="excel-cell-indicator">D11</span></label>
                 <input type="text" id="preview-dir" readonly style="background: white; font-size: 11px;">
               </div>
             </div>
@@ -459,14 +458,6 @@
               </datalist>
             </div>
 
-            <div class="form-group">
-              <label style="display: flex; align-items: center; gap: 8px;">
-                <input type="checkbox" id="field-capacitacion" style="width: auto; margin: 0;">
-                ¿Es Capacitación? (CAP)
-              </label>
-              <p class="muted" style="margin-top: 5px;">Marcar si es OTB de capacitación</p>
-            </div>
-
             <div class="form-group full" style="background: linear-gradient(135deg, #f0f7f3, #e8f5e9); padding: 15px; border-radius: 6px; border: 2px solid var(--primary);">
               <label style="color: var(--primary); margin-bottom: 6px; font-size: 11px;">N° DE INFORME (GENERADO AUTOMÁTICAMENTE)</label>
               <div style="display: flex; gap: 8px; align-items: center;">
@@ -488,7 +479,7 @@
               <input type="text" id="field-cliente" required data-excel="D5">
             </div>
             <div class="form-group">
-              <label>Solicitante <span class="excel-cell-indicator">D3</span></label>
+              <label>Nombre y puesto del solicitante <span class="excel-cell-indicator">D3</span></label>
               <input type="text" id="field-solicitante" data-excel="D3">
             </div>
             <div class="form-group">
@@ -500,8 +491,8 @@
               <input type="text" id="field-tel" data-excel="I7">
             </div>
             <div class="form-group full">
-              <label>Dirección del Centro de Trabajo <span class="excel-cell-indicator">D13</span></label>
-              <input type="text" id="field-dir" data-excel="D13">
+              <label>Dirección del Centro de Trabajo <span class="excel-cell-indicator">D11</span></label>
+              <input type="text" id="field-dir" data-excel="D11">
             </div>
           </div>
 
@@ -735,7 +726,7 @@
         const cliente = getVal('D5');
         const rfc = getVal('D7');
         const tel = getVal('I7');
-        const dir = getVal('D13');
+        const dir = getVal('D11');
 
         console.log('Datos extraídos:', { solicitante, cliente, rfc, tel, dir });
 
@@ -778,6 +769,9 @@
 
         // Validar progreso
         validarProgreso();
+
+        // Auto-scroll al paso 2 después de cargar el perfil
+        setTimeout(() => scrollToNextStep(1), 300);
       } catch (err) {
         console.error('Error al leer Excel:', err);
         alert('Error al leer el archivo Excel: ' + err.message);
@@ -844,7 +838,6 @@
   function generarNumeroInforme() {
     const ot = document.getElementById('field-ot').value.trim().toUpperCase();
     const nom = document.getElementById('field-nom').value.trim();
-    const esCapacitacion = document.getElementById('field-capacitacion').checked;
     const numInformeField = document.getElementById('field-num-informe');
 
     if (!ot || !nom) {
@@ -868,27 +861,19 @@
     numInformeField.style.opacity = '0.6';
 
     // Obtener consecutivo del backend
-    jsonp(`${SCRIPT_URL}?action=getConsecutivo&anio=${anio}&mes=${mes}&nom=${nom}&tipo=${tipoOrden}&cap=${esCapacitacion ? '1' : '0'}`, (result) => {
+    jsonp(`${SCRIPT_URL}?action=getConsecutivo&anio=${anio}&mes=${mes}&nom=${nom}&tipo=${tipoOrden}`, (result) => {
       numInformeField.style.opacity = '1';
 
       if (result && result.success && result.numeroInforme) {
         numInformeField.value = result.numeroInforme;
       } else {
         // Fallback: generar sin consecutivo
-        let numeroInforme = `EA-${anio}${mes}-${nom}`;
-        if (tipoOrden === 'OTB' && esCapacitacion) {
-          numeroInforme += '-CAP';
-        }
-        numInformeField.value = numeroInforme + '-####';
+        numInformeField.value = `EA-${anio}${mes}-${nom}-####`;
       }
     }, () => {
       // Error: fallback
       numInformeField.style.opacity = '1';
-      let numeroInforme = `EA-${anio}${mes}-${nom}`;
-      if (tipoOrden === 'OTB' && esCapacitacion) {
-        numeroInforme += '-CAP';
-      }
-      numInformeField.value = numeroInforme + '-####';
+      numInformeField.value = `EA-${anio}${mes}-${nom}-####`;
     });
   }
 
@@ -922,7 +907,6 @@
   document.getElementById('field-ot').addEventListener('change', detectarTipoOrden);
   document.getElementById('field-nom').addEventListener('input', () => { generarNumeroInforme(); validarProgreso(); });
   document.getElementById('field-nom').addEventListener('change', () => { generarNumeroInforme(); validarProgreso(); });
-  document.getElementById('field-capacitacion').addEventListener('change', () => { generarNumeroInforme(); validarProgreso(); });
   document.getElementById('field-fecha').addEventListener('change', validarProgreso);
   document.getElementById('field-cliente').addEventListener('input', validarProgreso);
 
@@ -1118,8 +1102,7 @@
           solicitante: document.getElementById('field-solicitante').value.trim(),
           rfc: document.getElementById('field-rfc').value.trim(),
           telefono: document.getElementById('field-tel').value.trim(),
-          direccion: document.getElementById('field-dir').value.trim(),
-          esCapacitacion: document.getElementById('field-capacitacion').checked
+          direccion: document.getElementById('field-dir').value.trim()
         },
         files: []
       };
@@ -1292,6 +1275,9 @@
     document.getElementById('total-size-indicator').style.display = 'none';
     document.getElementById('progress-fill').style.width = '0%';
 
+    // Limpiar borrador del localStorage
+    localStorage.removeItem('expediente_borrador');
+
     validarProgreso();
   }
 
@@ -1329,20 +1315,68 @@
   }
 
   // 7) TABLERO (JSONP) CON FILTROS Y CAMBIO DE ESTATUS
+  // Caché para mejorar tiempo de carga
+  const TABLERO_CACHE_KEY = 'tablero_cache';
+  const TABLERO_CACHE_DURATION = 60000; // 1 minuto
+
   function cargarTablero() {
     const box = document.getElementById('tablero-box');
-    box.innerHTML = `<p style="text-align:center; padding:20px;">Cargando datos desde Google Sheets...</p>`;
+
+    // Intentar mostrar datos en caché mientras carga
+    const cached = localStorage.getItem(TABLERO_CACHE_KEY);
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        const isExpired = Date.now() - timestamp > TABLERO_CACHE_DURATION;
+
+        // Mostrar caché inmediatamente
+        allTableroData = data || [];
+        renderTablero(allTableroData);
+
+        if (!isExpired) {
+          return; // Caché válido, no recargar
+        }
+
+        // Indicar que se está actualizando en segundo plano
+        const updateIndicator = document.createElement('p');
+        updateIndicator.id = 'update-indicator';
+        updateIndicator.style.cssText = 'text-align:center; font-size:11px; color:#6c757d; padding:5px;';
+        updateIndicator.textContent = '🔄 Actualizando datos...';
+        box.insertBefore(updateIndicator, box.firstChild);
+      } catch (e) {
+        localStorage.removeItem(TABLERO_CACHE_KEY);
+      }
+    } else {
+      box.innerHTML = `<p style="text-align:center; padding:20px;">Cargando datos...</p>`;
+    }
 
     jsonp(`${SCRIPT_URL}?action=getTablero`, (result) => {
+      // Remover indicador de actualización
+      const indicator = document.getElementById('update-indicator');
+      if (indicator) indicator.remove();
+
       if (!(result && result.success)) {
-        box.innerHTML = `<p style="color:red; text-align:center;">${escapeHtml((result && result.error) ? result.error : 'Error al cargar.')}</p>`;
+        if (!cached) {
+          box.innerHTML = `<p style="color:red; text-align:center;">${escapeHtml((result && result.error) ? result.error : 'Error al cargar.')}</p>`;
+        }
         return;
       }
 
       allTableroData = result.data || [];
       renderTablero(allTableroData);
+
+      // Guardar en caché
+      localStorage.setItem(TABLERO_CACHE_KEY, JSON.stringify({
+        data: allTableroData,
+        timestamp: Date.now()
+      }));
     }, () => {
-      box.innerHTML = `<p style="color:red; text-align:center;">Error al conectar con la base de datos.</p>`;
+      const indicator = document.getElementById('update-indicator');
+      if (indicator) indicator.remove();
+
+      if (!cached) {
+        box.innerHTML = `<p style="color:red; text-align:center;">Error al conectar con la base de datos.</p>`;
+      }
     });
   }
 
@@ -1590,7 +1624,6 @@
     const paso2Inputs = [
       document.getElementById('field-ot'),
       document.getElementById('field-nom'),
-      document.getElementById('field-capacitacion'),
       document.getElementById('field-cliente'),
       document.getElementById('field-solicitante'),
       document.getElementById('field-rfc'),
@@ -1653,7 +1686,13 @@
 
     // Calcular tamaño total de archivos
     calcularTamanoTotal();
+
+    // Estimar tiempo de carga
+    estimarTiempoCarga();
   }
+
+  // Variable para trackear estado previo de pasos (para auto-scroll)
+  let _prevPaso1Complete = false;
 
   function actualizarIndicadoresPaso(paso1Completo, paso2Completo) {
     // Obtener los headers de sección
@@ -1909,30 +1948,15 @@
     }
   }
 
-  // Modificar validarProgreso para incluir auto-scroll
-  const originalValidarProgreso = validarProgreso;
-  validarProgreso = function() {
-    const wasPaso1Complete = perfilDataFile !== null;
-
-    originalValidarProgreso();
-
-    const isPaso1Complete = perfilDataFile !== null;
-    const isPaso2Complete = document.getElementById('field-num-informe').value.trim() !== '' &&
-                            !document.getElementById('field-num-informe').value.includes('####');
-
-    // Auto-scroll cuando se completa un paso
-    if (!wasPaso1Complete && isPaso1Complete) {
-      setTimeout(() => scrollToNextStep(1), 300); // Scroll a Paso 2
-    }
-  };
+  // Auto-scroll se maneja directamente en el evento de carga del archivo Excel
 
   // ============================================
   // ESTIMACIÓN DE TIEMPO DE CARGA
   // ============================================
 
   function estimarTiempoCarga() {
-    const indicator = document.getElementById('total-size-indicator');
     const totalSizeSpan = document.getElementById('total-size');
+    if (!totalSizeSpan) return;
 
     let totalBytes = 0;
 
@@ -1941,12 +1965,11 @@
     Array.from(document.getElementById('up-croquis').files).forEach(f => totalBytes += f.size);
     Array.from(document.getElementById('up-otros').files).forEach(f => totalBytes += f.size);
 
-    if (perfilDataFile && !perfilDataFile.isGoogleSheet) {
+    if (perfilDataFile) {
       totalBytes += perfilDataFile.size;
     }
 
     if (totalBytes > 0) {
-      // Estimación: ~1MB por segundo (puede variar según conexión)
       const segundosEstimados = Math.ceil((totalBytes / (1024 * 1024)) * 1.5);
 
       let tiempoTexto = '';
@@ -1959,30 +1982,12 @@
         tiempoTexto = ` (~${minutos} minuto${minutos > 1 ? 's' : ''})`;
       }
 
-      // Agregar estimación al texto actual
       const currentText = totalSizeSpan.textContent;
       if (!currentText.includes('~')) {
         totalSizeSpan.textContent = currentText + tiempoTexto;
       }
     }
   }
-
-  // Sobrescribir calcularTamanoTotal para incluir estimación
-  const originalCalcularTamanoTotal = calcularTamanoTotal;
-  calcularTamanoTotal = function() {
-    originalCalcularTamanoTotal();
-    estimarTiempoCarga();
-  };
-
-  // ============================================
-  // LIMPIAR BORRADOR AL ENVIAR EXITOSAMENTE
-  // ============================================
-
-  const originalLimpiarFormulario = limpiarFormulario;
-  limpiarFormulario = function() {
-    originalLimpiarFormulario();
-    localStorage.removeItem('expediente_borrador');
-  };
 
   // ============================================
   // INICIALIZACIÓN
