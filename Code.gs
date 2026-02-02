@@ -185,7 +185,7 @@ function createExpedienteSafe_(payload) {
       info.direccion || '',                 // J: Direccion
       info.fecha || '',                     // K: FechaServicio
       info.entrega || '',                   // L: FechaEntrega
-      info.esCapacitacion ? 'SI' : 'NO',   // M: EsCapacitacion
+      '',                                   // M: (Reservado)
       'EN PROCESO',                         // N: Estatus
       expedienteFolder.getUrl()             // O: LinkDrive
     ]);
@@ -444,8 +444,6 @@ function getConsecutivoSafe_(params) {
     const anio = params.anio || '';
     const mes = params.mes || '';
     const nom = params.nom || '';
-    const tipo = params.tipo || 'OT'; // OT o OTB
-    const cap = params.cap === '1';
 
     if (!anio || !mes || !nom) {
       return { success: false, error: 'Faltan parámetros: anio, mes o nom' };
@@ -457,10 +455,7 @@ function getConsecutivoSafe_(params) {
     }
 
     // Construir prefijo del número de informe
-    let prefix = `EA-${anio}${mes}-${nom}`;
-    if (tipo === 'OTB' && cap) {
-      prefix += '-CAP';
-    }
+    const prefix = `EA-${anio}${mes}-${nom}`;
 
     // Buscar el último consecutivo con este prefijo
     const lastRow = sheet.getLastRow();
@@ -523,7 +518,7 @@ function getPerfilFromSheetSafe_(params) {
       cliente: sheet.getRange('D5').getDisplayValue(),
       rfc: sheet.getRange('D7').getDisplayValue(),
       telefono: sheet.getRange('I7').getDisplayValue(),
-      direccion: sheet.getRange('D13').getDisplayValue()  // Cambiado de D11 a D13
+      direccion: sheet.getRange('D11').getDisplayValue()
     };
 
     return { success: true, data };
