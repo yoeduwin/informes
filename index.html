@@ -348,6 +348,127 @@
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
+    /* Métricas del tablero */
+    .metrics-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .metric-card {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border-left: 4px solid #dee2e6;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    .metric-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    .metric-card.active {
+      box-shadow: 0 0 0 2px var(--primary);
+    }
+    .metric-card .metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .metric-card .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #6c757d;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .metric-card.metric-vencidos {
+      border-left-color: #dc3545;
+    }
+    .metric-card.metric-vencidos .metric-value {
+      color: #dc3545;
+    }
+    .metric-card.metric-proximos {
+      border-left-color: #ffc107;
+    }
+    .metric-card.metric-proximos .metric-value {
+      color: #856404;
+    }
+    .metric-card.metric-revision {
+      border-left-color: #0d6efd;
+    }
+    .metric-card.metric-revision .metric-value {
+      color: #0d6efd;
+    }
+    .metric-card.metric-entregados {
+      border-left-color: #198754;
+    }
+    .metric-card.metric-entregados .metric-value {
+      color: #198754;
+    }
+
+    /* Tabs del tablero */
+    .tablero-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #dee2e6;
+    }
+    .tablero-tab {
+      padding: 10px 20px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      color: #6c757d;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+    .tablero-tab:hover {
+      color: var(--primary);
+      background: #f8f9fa;
+    }
+    .tablero-tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: white;
+    }
+    .tablero-tab .tab-count {
+      background: #e9ecef;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      margin-left: 8px;
+    }
+    .tablero-tab.active .tab-count {
+      background: var(--primary);
+      color: white;
+    }
+
+    /* Indicador de vencimiento en tabla */
+    .vencimiento-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .vencimiento-badge.vencido {
+      background: #f8d7da;
+      color: #842029;
+    }
+    .vencimiento-badge.proximo {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .vencimiento-badge.en-plazo {
+      background: #d1e7dd;
+      color: #0f5132;
+    }
+
     .status-msg { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-weight: bold; text-align: center; }
     .status-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     .status-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -587,14 +708,50 @@
     </div>
 
     <div id="section-tablero" class="section">
+      <!-- Métricas del tablero -->
+      <div class="metrics-container" id="metrics-container">
+        <div class="metric-card metric-vencidos" onclick="filtrarPorMetrica('vencidos')" title="Expedientes vencidos">
+          <div class="metric-value" id="metric-vencidos">-</div>
+          <div class="metric-label">Vencidos</div>
+        </div>
+        <div class="metric-card metric-proximos" onclick="filtrarPorMetrica('proximos')" title="Vencen en los próximos 7 días">
+          <div class="metric-value" id="metric-proximos">-</div>
+          <div class="metric-label">Vence en 7 días</div>
+        </div>
+        <div class="metric-card metric-revision" onclick="filtrarPorMetrica('revision')" title="En revisión técnica (En Proceso)">
+          <div class="metric-value" id="metric-revision">-</div>
+          <div class="metric-label">En Revisión Técnica</div>
+        </div>
+        <div class="metric-card metric-entregados" onclick="filtrarPorMetrica('entregados')" title="Expedientes entregados/finalizados">
+          <div class="metric-value" id="metric-entregados">-</div>
+          <div class="metric-label">Entregados</div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-title" style="justify-content: space-between;">
-          <span>🔍 EXPEDIENTES RECIENTES EN "INFORMES"</span>
+          <span>📊 TABLERO DE INFORMES</span>
           <button class="btn-export" onclick="exportarTablero()">📥 EXPORTAR A EXCEL</button>
+        </div>
+
+        <!-- Tabs: Activos / Entregados -->
+        <div class="tablero-tabs">
+          <button class="tablero-tab active" id="tab-activos" onclick="cambiarVistaTablero('activos')">
+            📋 Activos <span class="tab-count" id="count-activos">0</span>
+          </button>
+          <button class="tablero-tab" id="tab-entregados" onclick="cambiarVistaTablero('entregados')">
+            ✅ Entregados <span class="tab-count" id="count-entregados">0</span>
+          </button>
         </div>
 
         <div class="filter-bar">
           <input type="text" id="filter-search" placeholder="🔍 Buscar por OT, Cliente o N° Informe...">
+          <select id="filter-vencimiento">
+            <option value="">Todos los vencimientos</option>
+            <option value="vencidos">Vencidos</option>
+            <option value="proximos">Próximos 7 días</option>
+            <option value="en-plazo">En plazo</option>
+          </select>
           <select id="filter-estatus">
             <option value="">Todos los estatus</option>
             <option value="EN PROCESO">En Proceso</option>
@@ -632,6 +789,8 @@
   let perfilDataFile = null; // Variable para guardar el archivo del perfil
   let allTableroData = []; // Para filtros
   let autosaveTimer = null; // Timer para auto-guardado
+  let vistaActual = 'activos'; // Vista actual del tablero: 'activos' o 'entregados'
+  let filtroMetricaActivo = null; // Filtro de métrica activo
 
   // 0) CARGAR ÓRDENES DE TRABAJO AL INICIO
   function cargarOrdenesDisponibles() {
@@ -1328,9 +1487,9 @@
         const { data, timestamp } = JSON.parse(cached);
         const isExpired = Date.now() - timestamp > TABLERO_CACHE_DURATION;
 
-        // Mostrar caché inmediatamente
+        // Mostrar caché inmediatamente con filtros aplicados
         allTableroData = data || [];
-        renderTablero(allTableroData);
+        aplicarFiltros();
 
         if (!isExpired) {
           return; // Caché válido, no recargar
@@ -1362,7 +1521,8 @@
       }
 
       allTableroData = result.data || [];
-      renderTablero(allTableroData);
+      // Aplicar filtros (esto incluye la vista activos/entregados)
+      aplicarFiltros();
 
       // Guardar en caché
       localStorage.setItem(TABLERO_CACHE_KEY, JSON.stringify({
@@ -1379,13 +1539,167 @@
     });
   }
 
+  // Función para calcular días hasta vencimiento
+  function calcularDiasVencimiento(fechaEntrega) {
+    if (!fechaEntrega) return null;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const entrega = new Date(fechaEntrega);
+    entrega.setHours(0, 0, 0, 0);
+    const diffTime = entrega - hoy;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }
+
+  // Función para obtener el estado de vencimiento
+  function getEstadoVencimiento(fechaEntrega) {
+    const dias = calcularDiasVencimiento(fechaEntrega);
+    if (dias === null) return 'sin-fecha';
+    if (dias < 0) return 'vencido';
+    if (dias <= 7) return 'proximo';
+    return 'en-plazo';
+  }
+
+  // Función para calcular y mostrar métricas
+  function calcularMetricas() {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    let vencidos = 0;
+    let proximos = 0;
+    let revision = 0;
+    let entregados = 0;
+    let activos = 0;
+
+    allTableroData.forEach(r => {
+      const estatusNorm = (r.estatus || '').toUpperCase();
+
+      // Contar entregados (finalizados)
+      if (estatusNorm.includes('FINALIZADO')) {
+        entregados++;
+        return; // No contar en otras métricas
+      }
+
+      // Contar activos (no finalizados)
+      activos++;
+
+      // Contar en revisión técnica (EN PROCESO)
+      if (estatusNorm.includes('EN PROCESO')) {
+        revision++;
+      }
+
+      // Calcular vencimiento solo para activos
+      const estado = getEstadoVencimiento(r.fechaEntrega);
+      if (estado === 'vencido') vencidos++;
+      else if (estado === 'proximo') proximos++;
+    });
+
+    // Actualizar UI de métricas
+    document.getElementById('metric-vencidos').textContent = vencidos;
+    document.getElementById('metric-proximos').textContent = proximos;
+    document.getElementById('metric-revision').textContent = revision;
+    document.getElementById('metric-entregados').textContent = entregados;
+
+    // Actualizar contadores de tabs
+    document.getElementById('count-activos').textContent = activos;
+    document.getElementById('count-entregados').textContent = entregados;
+  }
+
+  // Función para cambiar vista del tablero (Activos/Entregados)
+  function cambiarVistaTablero(vista) {
+    vistaActual = vista;
+    filtroMetricaActivo = null;
+
+    // Actualizar tabs
+    document.querySelectorAll('.tablero-tab').forEach(tab => tab.classList.remove('active'));
+    document.getElementById(`tab-${vista}`).classList.add('active');
+
+    // Quitar clase active de métricas
+    document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active'));
+
+    // Aplicar filtros con la nueva vista
+    aplicarFiltros();
+  }
+
+  // Función para filtrar por métrica (click en tarjetas)
+  function filtrarPorMetrica(tipo) {
+    // Toggle: si ya está activo, desactivar
+    if (filtroMetricaActivo === tipo) {
+      filtroMetricaActivo = null;
+      document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active'));
+    } else {
+      filtroMetricaActivo = tipo;
+      // Actualizar visual de tarjetas
+      document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active'));
+      document.querySelector(`.metric-card.metric-${tipo}`)?.classList.add('active');
+    }
+
+    // Cambiar a vista correspondiente
+    if (tipo === 'entregados') {
+      vistaActual = 'entregados';
+      document.querySelectorAll('.tablero-tab').forEach(tab => tab.classList.remove('active'));
+      document.getElementById('tab-entregados').classList.add('active');
+    } else if (filtroMetricaActivo) {
+      vistaActual = 'activos';
+      document.querySelectorAll('.tablero-tab').forEach(tab => tab.classList.remove('active'));
+      document.getElementById('tab-activos').classList.add('active');
+    }
+
+    // Limpiar otros filtros cuando se usa métrica
+    if (filtroMetricaActivo) {
+      document.getElementById('filter-vencimiento').value = '';
+      document.getElementById('filter-estatus').value = '';
+    }
+
+    aplicarFiltros();
+  }
+
+  // Función para obtener badge de vencimiento
+  function getVencimientoBadge(fechaEntrega) {
+    const estado = getEstadoVencimiento(fechaEntrega);
+    const dias = calcularDiasVencimiento(fechaEntrega);
+
+    if (estado === 'vencido') {
+      return `<span class="vencimiento-badge vencido">Vencido (${Math.abs(dias)}d)</span>`;
+    } else if (estado === 'proximo') {
+      return `<span class="vencimiento-badge proximo">${dias === 0 ? 'Hoy' : dias + 'd'}</span>`;
+    } else if (estado === 'en-plazo') {
+      return `<span class="vencimiento-badge en-plazo">${dias}d</span>`;
+    }
+    return '';
+  }
+
   function renderTablero(data) {
     const box = document.getElementById('tablero-box');
+
+    // Calcular métricas siempre con todos los datos
+    calcularMetricas();
 
     if (data.length === 0) {
       box.innerHTML = `<p style="text-align:center; padding:20px; color: #6c757d;">No se encontraron expedientes.</p>`;
       return;
     }
+
+    // Ordenar: primero vencidos, luego por fecha de entrega más próxima
+    const dataSorted = [...data].sort((a, b) => {
+      const diasA = calcularDiasVencimiento(a.fechaEntrega);
+      const diasB = calcularDiasVencimiento(b.fechaEntrega);
+
+      // Si ambos tienen fecha
+      if (diasA !== null && diasB !== null) {
+        // Vencidos primero (días negativos)
+        if (diasA < 0 && diasB >= 0) return -1;
+        if (diasB < 0 && diasA >= 0) return 1;
+        // Luego ordenar por días (menor a mayor)
+        return diasA - diasB;
+      }
+
+      // Los que no tienen fecha van al final
+      if (diasA === null && diasB !== null) return 1;
+      if (diasB === null && diasA !== null) return -1;
+
+      return 0;
+    });
 
     let html = `<table><thead><tr>
       <th>Número Informe</th>
@@ -1399,9 +1713,11 @@
       <th>Acciones</th>
     </tr></thead><tbody>`;
 
-    data.forEach((r, index) => {
+    dataSorted.forEach((r, index) => {
       const estatusBadge = getEstatusBadge(r.estatus);
       const tipoOrden = (r.ot || '').toUpperCase().startsWith('OTB') ? 'OTB' : 'OT';
+      const vencimientoBadge = getVencimientoBadge(r.fechaEntrega);
+      const estatusNorm = (r.estatus || '').toUpperCase();
 
       html += `
         <tr>
@@ -1411,7 +1727,7 @@
           <td>${escapeHtml(r.cliente || '')}</td>
           <td>${escapeHtml(r.nom || '')}</td>
           <td>${escapeHtml(r.fecha || '')}</td>
-          <td>${escapeHtml(r.fechaEntrega || '')}</td>
+          <td>${escapeHtml(r.fechaEntrega || '')} ${!estatusNorm.includes('FINALIZADO') ? vencimientoBadge : ''}</td>
           <td>
             <select class="status-select ${getEstatusClass(r.estatus)}"
                     onchange="cambiarEstatus('${escapeHtml(r.ot || '')}', this.value, ${index})"
@@ -1512,18 +1828,53 @@
     const searchTerm = document.getElementById('filter-search').value.toLowerCase();
     const estatusFilter = document.getElementById('filter-estatus').value.toUpperCase();
     const nomFilter = document.getElementById('filter-nom').value;
+    const vencimientoFilter = document.getElementById('filter-vencimiento').value;
 
     const filtered = allTableroData.filter(r => {
+      const estatusNorm = (r.estatus || '').toUpperCase();
+
+      // REGLA DE ARCHIVADO AUTOMÁTICO:
+      // Cuando Estatus = "finalizado", ocultar de vista principal (mostrar solo en vista "Entregados")
+      if (vistaActual === 'activos') {
+        // En vista Activos: ocultar finalizados
+        if (estatusNorm.includes('FINALIZADO')) return false;
+      } else if (vistaActual === 'entregados') {
+        // En vista Entregados: mostrar solo finalizados
+        if (!estatusNorm.includes('FINALIZADO')) return false;
+      }
+
+      // Filtro por métrica activa (click en tarjetas)
+      if (filtroMetricaActivo) {
+        const estadoVencimiento = getEstadoVencimiento(r.fechaEntrega);
+
+        if (filtroMetricaActivo === 'vencidos' && estadoVencimiento !== 'vencido') return false;
+        if (filtroMetricaActivo === 'proximos' && estadoVencimiento !== 'proximo') return false;
+        if (filtroMetricaActivo === 'revision' && !estatusNorm.includes('EN PROCESO')) return false;
+        // 'entregados' ya está manejado por vistaActual
+      }
+
+      // Filtro de búsqueda
       const matchSearch = !searchTerm ||
         (r.ot || '').toLowerCase().includes(searchTerm) ||
         (r.cliente || '').toLowerCase().includes(searchTerm) ||
         (r.numInforme || '').toLowerCase().includes(searchTerm);
 
-      const matchEstatus = !estatusFilter || (r.estatus || '').toUpperCase().includes(estatusFilter);
+      // Filtro de estatus
+      const matchEstatus = !estatusFilter || estatusNorm.includes(estatusFilter);
 
+      // Filtro de NOM
       const matchNom = !nomFilter || (r.nom || '') === nomFilter;
 
-      return matchSearch && matchEstatus && matchNom;
+      // Filtro de vencimiento
+      let matchVencimiento = true;
+      if (vencimientoFilter) {
+        const estadoVencimiento = getEstadoVencimiento(r.fechaEntrega);
+        if (vencimientoFilter === 'vencidos') matchVencimiento = estadoVencimiento === 'vencido';
+        else if (vencimientoFilter === 'proximos') matchVencimiento = estadoVencimiento === 'proximo';
+        else if (vencimientoFilter === 'en-plazo') matchVencimiento = estadoVencimiento === 'en-plazo';
+      }
+
+      return matchSearch && matchEstatus && matchNom && matchVencimiento;
     });
 
     renderTablero(filtered);
@@ -1533,7 +1884,10 @@
     document.getElementById('filter-search').value = '';
     document.getElementById('filter-estatus').selectedIndex = 0;
     document.getElementById('filter-nom').selectedIndex = 0;
-    renderTablero(allTableroData);
+    document.getElementById('filter-vencimiento').selectedIndex = 0;
+    filtroMetricaActivo = null;
+    document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active'));
+    aplicarFiltros();
   }
 
   // Event listeners para filtros
@@ -1541,6 +1895,7 @@
     document.getElementById('filter-search')?.addEventListener('input', aplicarFiltros);
     document.getElementById('filter-estatus')?.addEventListener('change', aplicarFiltros);
     document.getElementById('filter-nom')?.addEventListener('change', aplicarFiltros);
+    document.getElementById('filter-vencimiento')?.addEventListener('change', aplicarFiltros);
   });
 
   // JSONP helper
