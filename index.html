@@ -489,12 +489,12 @@
   </div>
 
   <div class="tabs">
-    <button class="tab active" onclick="changeTab('nuevo', event)">➕ NUEVO EXPEDIENTE</button>
-    <button class="tab" onclick="changeTab('tablero', event)">📊 TABLERO DE INFORMES</button>
+    <button class="tab" onclick="changeTab('nuevo', event)">➕ NUEVO EXPEDIENTE</button>
+    <button class="tab active" onclick="changeTab('tablero', event)">📊 TABLERO DE INFORMES</button>
   </div>
 
   <div class="content">
-    <div id="section-nuevo" class="section active">
+    <div id="section-nuevo" class="section">
 
       <!-- Barra de progreso -->
       <div class="progress-bar">
@@ -727,7 +727,7 @@
       💾 Borrador guardado
     </div>
 
-    <div id="section-tablero" class="section">
+    <div id="section-tablero" class="section active">
       <!-- Métricas del tablero -->
       <div class="metrics-container" id="metrics-container">
         <div class="metric-card metric-vencidos" onclick="filtrarPorMetrica('vencidos')" title="Expedientes vencidos">
@@ -751,7 +751,10 @@
       <div class="card">
         <div class="card-title" style="justify-content: space-between;">
           <span>📊 TABLERO DE INFORMES</span>
-          <button class="btn-export" onclick="exportarTablero()">📥 EXPORTAR A EXCEL</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-export" onclick="irANuevoExpediente()" style="background: var(--primary);">➕ NUEVO EXPEDIENTE</button>
+            <button class="btn-export" onclick="exportarTablero()">📥 EXPORTAR A EXCEL</button>
+          </div>
         </div>
 
         <!-- Tabs: Activos / Entregados -->
@@ -1147,6 +1150,32 @@
     }
     validarProgreso();
   });
+
+  // Copiar link de carpeta con texto formateado: NOM + NumInforme + Cliente + OT
+  function copiarLinkExpediente(nom, numInforme, cliente, ot, link) {
+    const texto = `${nom} - ${numInforme} - ${cliente} - ${ot}\n${link}`;
+    navigator.clipboard.writeText(texto).then(() => {
+      alert('✅ Link copiado al portapapeles');
+    }).catch(() => {
+      // Fallback para navegadores sin clipboard API
+      const ta = document.createElement('textarea');
+      ta.value = texto;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      alert('✅ Link copiado al portapapeles');
+    });
+  }
+
+  // Ir a Nuevo Expediente desde el tablero
+  function irANuevoExpediente() {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    // Activar la tab de Nuevo Expediente (primera tab)
+    document.querySelectorAll('.tab')[0].classList.add('active');
+    document.getElementById('section-nuevo').classList.add('active');
+  }
 
   // 5) TABS
   function changeTab(tabId, e) {
@@ -1779,7 +1808,10 @@
               <option value="CANCELADO" ${estatusNorm === 'CANCELADO' ? 'selected' : ''}>Cancelado</option>
             </select>
           </td>
-          <td><a class="clean" href="${r.linkDrive || '#'}" target="_blank">📁 Ver</a></td>
+          <td style="white-space: nowrap;">
+            <a class="clean" href="${r.linkDrive || '#'}" target="_blank">📁</a>
+            <a class="clean" href="#" onclick="copiarLinkExpediente('${escapeHtml(r.nom || '')}', '${escapeHtml(r.numInforme || '')}', '${escapeHtml(r.cliente || '')}', '${escapeHtml(r.ot || '')}', '${escapeHtml(r.linkDrive || '')}'); return false;" title="Copiar link de carpeta">📋</a>
+          </td>
         </tr>`;
     });
 
@@ -2463,6 +2495,7 @@
     cargarOrdenesDisponibles(); // Cargar órdenes de trabajo
     validarProgreso(); // Validar estado inicial
     cargarBorrador(); // Intentar cargar borrador guardado
+    cargarTablero(); // Cargar tablero al inicio (vista principal)
   });
 
   // Reloj
