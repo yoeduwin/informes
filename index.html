@@ -1760,10 +1760,10 @@
           <td>
             <select class="status-select" onchange="cambiarResponsable('${escapeHtml(r.ot || '')}', this.value, ${index})" style="font-size: 11px; padding: 4px 6px;">
               <option value="" ${!r.responsable ? 'selected' : ''}>Sin asignar</option>
-              <option value="EDUARDO CAMPOS" ${(r.responsable || '').toUpperCase() === 'EDUARDO CAMPOS' ? 'selected' : ''}>Eduardo Campos</option>
-              <option value="EDUWIN IVAN" ${(r.responsable || '').toUpperCase() === 'EDUWIN IVAN' ? 'selected' : ''}>Eduwin Iv\u00e1n</option>
-              <option value="MARTIN LUNA" ${(r.responsable || '').toUpperCase() === 'MARTIN LUNA' ? 'selected' : ''}>Mart\u00edn Luna</option>
-              <option value="JIMMY AYALA" ${(r.responsable || '').toUpperCase() === 'JIMMY AYALA' ? 'selected' : ''}>Jimmy Ayala</option>
+              <option value="EDUARDO CAMPOS" ${normalizeStr(r.responsable) === 'EDUARDO CAMPOS' ? 'selected' : ''}>Eduardo Campos</option>
+              <option value="EDUWIN IVAN" ${normalizeStr(r.responsable) === 'EDUWIN IVAN' ? 'selected' : ''}>Eduwin Iv\u00e1n</option>
+              <option value="MARTIN LUNA" ${normalizeStr(r.responsable) === 'MARTIN LUNA' ? 'selected' : ''}>Mart\u00edn Luna</option>
+              <option value="JIMMY AYALA" ${normalizeStr(r.responsable) === 'JIMMY AYALA' ? 'selected' : ''}>Jimmy Ayala</option>
             </select>
           </td>
           <td>${escapeHtml(r.fecha || '')}</td>
@@ -1904,7 +1904,7 @@
             String(r.ot || '').trim().toUpperCase() === ot.trim().toUpperCase()
           );
 
-          if (updated && updated.responsable.toUpperCase() === nuevoResponsable.toUpperCase()) {
+          if (updated && normalizeStr(updated.responsable) === normalizeStr(nuevoResponsable)) {
             allTableroData = result.data;
             renderTablero(allTableroData);
             alert(`✅ Responsable actualizado a "${nuevoResponsable}"`);
@@ -2059,6 +2059,11 @@
       };
       tick(intentos);
     });
+  }
+
+  // Quita acentos y pasa a mayúsculas para comparaciones robustas
+  function normalizeStr(s) {
+    return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
   }
 
   function escapeHtml(s) {
