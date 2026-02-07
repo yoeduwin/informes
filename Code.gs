@@ -115,8 +115,12 @@ function createExpedienteSafe_(payload) {
     const tipoOrden = info.tipoOrden || 'OT'; // OT o OTB
 
     // 1) Crear carpeta de expediente
+    // Extraer el consecutivo global del numInforme (último segmento de 4 dígitos)
+    // y usarlo como prefijo para que las carpetas se ordenen por secuencia en Drive/PC
+    const consecutivoMatch = numInforme.match(/-(\d{4})$/);
+    const consecutivoPrefix = consecutivoMatch ? consecutivoMatch[1] : '0000';
     const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID);
-    const folderName = `${numInforme} - ${info.ot} - ${(info.cliente || 'SIN_CLIENTE')}`;
+    const folderName = `${consecutivoPrefix} - ${numInforme} - ${info.ot} - ${(info.cliente || 'SIN_CLIENTE')}`;
     const expedienteFolder = rootFolder.createFolder(folderName);
 
     // 2) Crear subcarpetas
@@ -457,32 +461,25 @@ function getConsecutivoSafe_(params) {
       return { success: false, error: `No existe la hoja "${SHEET_NAME}".` };
     }
 
-    // Formato: EA-{YYMM}-{CONSECUTIVO_GLOBAL}-{NOM}
-    // El consecutivo es GLOBAL (no por prefijo) para mantener secuencia en carpetas
+    // Formato: EA-{YYMM}-{NOM}-{CONSECUTIVO_GLOBAL}
+    // El consecutivo es GLOBAL (no por prefijo NOM) para mantener secuencia continua
+    // La carpeta en Drive usa el consecutivo como prefijo para ordenar visualmente
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) {
       // Primera vez, consecutivo 0001
-      return { success: true, numeroInforme: `EA-${anio}${mes}-0001-${nom}` };
+      return { success: true, numeroInforme: `EA-${anio}${mes}-${nom}-0001` };
     }
 
     // Leer columna B (NumInforme) desde la fila 2
     const values = sheet.getRange(2, 2, lastRow - 1, 1).getDisplayValues().flat();
 
     // Buscar el máximo consecutivo GLOBAL en todos los informes
-    // Soporta formato nuevo EA-YYMM-CONS-NOM y formato viejo EA-YYMM-NOM-CONS
-    const regexNew = /^EA-\d{4}-(\d{4})-/;
-    const regexOld = /^EA-\d{4}-[A-Za-z0-9]+-(\d{4})$/;
+    // Formato: EA-YYMM-NOM-CONS (el consecutivo siempre es el último segmento de 4 dígitos)
+    const regex = /^EA-\d{4}-[A-Za-z0-9]+-(\d{4})$/;
     let maxConsecutivo = 0;
 
     values.forEach(val => {
-      const v = String(val || '').trim();
-      let match = v.match(regexNew);
-      if (match) {
-        const consecutivo = parseInt(match[1], 10);
-        if (consecutivo > maxConsecutivo) maxConsecutivo = consecutivo;
-        return;
-      }
-      match = v.match(regexOld);
+      const match = String(val || '').trim().match(regex);
       if (match) {
         const consecutivo = parseInt(match[1], 10);
         if (consecutivo > maxConsecutivo) maxConsecutivo = consecutivo;
@@ -491,7 +488,7 @@ function getConsecutivoSafe_(params) {
 
     // Siguiente consecutivo
     const siguiente = String(maxConsecutivo + 1).padStart(4, '0');
-    return { success: true, numeroInforme: `EA-${anio}${mes}-${siguiente}-${nom}` };
+    return { success: true, numeroInforme: `EA-${anio}${mes}-${nom}-${siguiente}` };
 
   } catch (err) {
     Logger.log('Error en getConsecutivo: ' + err.message);

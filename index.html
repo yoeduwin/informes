@@ -1047,13 +1047,13 @@
       if (result && result.success && result.numeroInforme) {
         numInformeField.value = result.numeroInforme;
       } else {
-        // Fallback: generar sin consecutivo (formato nuevo: CONSECUTIVO antes de NOM)
-        numInformeField.value = `EA-${anio}${mes}-####-${nom}`;
+        // Fallback: generar sin consecutivo
+        numInformeField.value = `EA-${anio}${mes}-${nom}-####`;
       }
     }, () => {
       // Error: fallback
       numInformeField.style.opacity = '1';
-      numInformeField.value = `EA-${anio}${mes}-####-${nom}`;
+      numInformeField.value = `EA-${anio}${mes}-${nom}-####`;
     });
   }
 
