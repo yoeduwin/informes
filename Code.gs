@@ -83,6 +83,11 @@ function doPost(e) {
       return output_(res);
     }
 
+    if (data.action === 'updateResponsable') {
+      const res = updateResponsableSafe_(data);
+      return output_(res);
+    }
+
     return output_({ success: false, error: 'Acción no soportada: ' + String(data.action) });
   } catch (err) {
     return output_({ success: false, error: 'doPost fatal: ' + err.message });
@@ -373,6 +378,63 @@ function updateEstatusSafe_(data) {
   } catch (err) {
     Logger.log('Error en updateEstatus: ' + err.message);
     return { success: false, error: 'updateEstatus error: ' + err.message };
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+function updateResponsableSafe_(data) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(30000);
+
+    const ot = data.ot;
+    const nuevoResponsable = data.responsable;
+
+    if (!ot || !nuevoResponsable) {
+      return { success: false, error: 'Faltan parámetros: ot o responsable.' };
+    }
+
+    // Validar responsable
+    const responsablesValidos = ['EDUARDO CAMPOS', 'EDUWIN IVAN', 'MARTIN LUNA', 'JIMMY AYALA'];
+    if (!responsablesValidos.includes(nuevoResponsable.toUpperCase())) {
+      return { success: false, error: 'Responsable no válido.' };
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) return { success: false, error: `No existe la hoja "${SHEET_NAME}".` };
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { success: false, error: 'No hay datos en la hoja.' };
+
+    // Buscar la OT en la columna D (columna 4)
+    const otRange = sheet.getRange(2, 4, lastRow - 1, 1);
+    const otValues = otRange.getDisplayValues().flat();
+
+    const rowIndex = otValues.findIndex(val =>
+      String(val || '').trim().toUpperCase() === ot.trim().toUpperCase()
+    );
+
+    if (rowIndex === -1) {
+      return { success: false, error: 'No se encontró la OT: ' + ot };
+    }
+
+    // Actualizar responsable en columna P (columna 16)
+    const targetRow = rowIndex + 2;
+    sheet.getRange(targetRow, 16).setValue(nuevoResponsable.toUpperCase());
+
+    return {
+      success: true,
+      message: `Responsable actualizado a "${nuevoResponsable}" para OT: ${ot}`,
+      ot,
+      responsable: nuevoResponsable.toUpperCase()
+    };
+
+  } catch (err) {
+    Logger.log('Error en updateResponsable: ' + err.message);
+    return { success: false, error: 'updateResponsable error: ' + err.message };
   } finally {
     try { lock.releaseLock(); } catch (_) {}
   }

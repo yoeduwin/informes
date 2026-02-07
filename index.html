@@ -1757,7 +1757,15 @@
           <td>${escapeHtml(r.ot || '')}</td>
           <td>${escapeHtml(r.cliente || '')}</td>
           <td>${escapeHtml(r.nom || '')}</td>
-          <td>${escapeHtml(r.responsable || '')}</td>
+          <td>
+            <select class="status-select" onchange="cambiarResponsable('${escapeHtml(r.ot || '')}', this.value, ${index})" style="font-size: 11px; padding: 4px 6px;">
+              <option value="" ${!r.responsable ? 'selected' : ''}>Sin asignar</option>
+              <option value="EDUARDO CAMPOS" ${(r.responsable || '').toUpperCase() === 'EDUARDO CAMPOS' ? 'selected' : ''}>Eduardo Campos</option>
+              <option value="EDUWIN IVAN" ${(r.responsable || '').toUpperCase() === 'EDUWIN IVAN' ? 'selected' : ''}>Eduwin Iv\u00e1n</option>
+              <option value="MARTIN LUNA" ${(r.responsable || '').toUpperCase() === 'MARTIN LUNA' ? 'selected' : ''}>Mart\u00edn Luna</option>
+              <option value="JIMMY AYALA" ${(r.responsable || '').toUpperCase() === 'JIMMY AYALA' ? 'selected' : ''}>Jimmy Ayala</option>
+            </select>
+          </td>
           <td>${escapeHtml(r.fecha || '')}</td>
           <td>${escapeHtml(r.fechaEntrega || '')} ${!estatusNorm.includes('FINALIZADO') ? vencimientoBadge : ''}</td>
           <td>
@@ -1859,6 +1867,63 @@
     } catch (err) {
       console.error(err);
       alert(`❌ Error al actualizar estatus: ${err.message}`);
+      renderTablero(allTableroData);
+    }
+  }
+
+  async function cambiarResponsable(ot, nuevoResponsable, index) {
+    if (!nuevoResponsable) {
+      renderTablero(allTableroData);
+      return;
+    }
+
+    if (!confirm(`¿Cambiar responsable a "${nuevoResponsable}"?`)) {
+      renderTablero(allTableroData);
+      return;
+    }
+
+    try {
+      const payload = {
+        action: 'updateResponsable',
+        ot: ot,
+        responsable: nuevoResponsable
+      };
+
+      await fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      jsonp(`${SCRIPT_URL}?action=getTablero`, (result) => {
+        if (result && result.success) {
+          const updated = result.data.find(r =>
+            String(r.ot || '').trim().toUpperCase() === ot.trim().toUpperCase()
+          );
+
+          if (updated && updated.responsable.toUpperCase() === nuevoResponsable.toUpperCase()) {
+            allTableroData = result.data;
+            renderTablero(allTableroData);
+            alert(`✅ Responsable actualizado a "${nuevoResponsable}"`);
+          } else {
+            alert(`⚠️ No se pudo actualizar el responsable. Recargando tablero...`);
+            cargarTablero();
+          }
+        } else {
+          alert(`⚠️ No se pudo verificar la actualización. Recargando tablero...`);
+          cargarTablero();
+        }
+      }, () => {
+        alert(`❌ Error al verificar. Recargando tablero...`);
+        cargarTablero();
+      });
+
+    } catch (err) {
+      console.error(err);
+      alert(`❌ Error al actualizar responsable: ${err.message}`);
       renderTablero(allTableroData);
     }
   }
