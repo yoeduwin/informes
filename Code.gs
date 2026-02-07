@@ -396,9 +396,10 @@ function updateResponsableSafe_(data) {
       return { success: false, error: 'Faltan parámetros: ot o responsable.' };
     }
 
-    // Validar responsable
+    // Validar responsable (normalizar para aceptar con/sin acentos)
     const responsablesValidos = ['EDUARDO CAMPOS', 'EDUWIN IVAN', 'MARTIN LUNA', 'JIMMY AYALA'];
-    if (!responsablesValidos.includes(nuevoResponsable.toUpperCase())) {
+    const normalizado = normalizeStr_(nuevoResponsable);
+    if (!responsablesValidos.includes(normalizado)) {
       return { success: false, error: 'Responsable no válido.' };
     }
 
@@ -422,14 +423,15 @@ function updateResponsableSafe_(data) {
     }
 
     // Actualizar responsable en columna P (columna 16)
+    // Guardar el valor normalizado (sin acentos) para consistencia
     const targetRow = rowIndex + 2;
-    sheet.getRange(targetRow, 16).setValue(nuevoResponsable.toUpperCase());
+    sheet.getRange(targetRow, 16).setValue(normalizado);
 
     return {
       success: true,
-      message: `Responsable actualizado a "${nuevoResponsable}" para OT: ${ot}`,
+      message: `Responsable actualizado a "${normalizado}" para OT: ${ot}`,
       ot,
-      responsable: nuevoResponsable.toUpperCase()
+      responsable: normalizado
     };
 
   } catch (err) {
@@ -560,6 +562,11 @@ function getConsecutivoSafe_(params) {
 
 function escapeRegex_(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Quita acentos y pasa a mayúsculas para comparaciones robustas
+function normalizeStr_(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
 }
 
 function getPerfilFromSheetSafe_(params) {
