@@ -207,6 +207,8 @@
     .badge-proceso { background: #cfe2ff; color: #084298; }
     .badge-cancelado { background: #f8d7da; color: #842029; }
     .badge-finalizado { background: #d1e7dd; color: #0f5132; }
+    .badge-revision { background: #fff3cd; color: #856404; }
+    .badge-impresion { background: #e2d9f3; color: #5a2d82; }
 
     .status-select {
       padding: 5px 8px; border-radius: 5px; border: 1px solid #dee2e6;
@@ -631,6 +633,24 @@
               <input type="date" id="field-entrega" readonly style="background:#e9ecef; color: #495057;">
             </div>
           </div>
+
+          <!-- Separador visual -->
+          <div style="border-top: 1px dashed #dee2e6; margin: 20px 0; position: relative;">
+            <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-size: 10px; color: #6c757d; text-transform: uppercase;">Responsable</span>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="required-field">Responsable del Informe</label>
+              <select id="field-responsable" required>
+                <option value="">Seleccione responsable...</option>
+                <option value="EDUARDO CAMPOS">EDUARDO CAMPOS</option>
+                <option value="EDUWIN IVAN">EDUWIN IVAN</option>
+                <option value="MARTIN LUNA">MARTIN LUNA</option>
+                <option value="JIMMY AYALA">JIMMY AYALA</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -718,9 +738,9 @@
           <div class="metric-value" id="metric-proximos">-</div>
           <div class="metric-label">Vence en 7 días</div>
         </div>
-        <div class="metric-card metric-revision" onclick="filtrarPorMetrica('revision')" title="En revisión técnica (En Proceso)">
+        <div class="metric-card metric-revision" onclick="filtrarPorMetrica('revision')" title="Expedientes para revisión">
           <div class="metric-value" id="metric-revision">-</div>
-          <div class="metric-label">En Revisión Técnica</div>
+          <div class="metric-label">Para Revisión</div>
         </div>
         <div class="metric-card metric-entregados" onclick="filtrarPorMetrica('entregados')" title="Expedientes entregados/finalizados">
           <div class="metric-value" id="metric-entregados">-</div>
@@ -755,6 +775,8 @@
           <select id="filter-estatus">
             <option value="">Todos los estatus</option>
             <option value="EN PROCESO">En Proceso</option>
+            <option value="PARA REVISION">Para Revision</option>
+            <option value="PARA IMPRESION">Para Impresion</option>
             <option value="FINALIZADO">Finalizado</option>
             <option value="CANCELADO">Cancelado</option>
           </select>
@@ -1025,13 +1047,13 @@
       if (result && result.success && result.numeroInforme) {
         numInformeField.value = result.numeroInforme;
       } else {
-        // Fallback: generar sin consecutivo
-        numInformeField.value = `EA-${anio}${mes}-${nom}-####`;
+        // Fallback: generar sin consecutivo (formato nuevo: CONSECUTIVO antes de NOM)
+        numInformeField.value = `EA-${anio}${mes}-####-${nom}`;
       }
     }, () => {
       // Error: fallback
       numInformeField.style.opacity = '1';
-      numInformeField.value = `EA-${anio}${mes}-${nom}-####`;
+      numInformeField.value = `EA-${anio}${mes}-####-${nom}`;
     });
   }
 
@@ -1154,7 +1176,8 @@
     const otPdf = document.getElementById('up-ot').files[0];
 
     // Confirmación antes de enviar
-    const confirmar = confirm(`¿Confirmar creación del expediente?\n\nNúmero de Informe: ${numInforme}\nOT: ${ot}\nCliente: ${cliente}\n\n¿Deseas continuar?`);
+    const responsable = document.getElementById('field-responsable').value;
+    const confirmar = confirm(`¿Confirmar creación del expediente?\n\nNúmero de Informe: ${numInforme}\nOT: ${ot}\nCliente: ${cliente}\nResponsable: ${responsable}\n\n¿Deseas continuar?`);
 
     if (!confirmar) {
       return;
@@ -1182,6 +1205,11 @@
 
     if (!fecha) {
       alert("⚠️ Por favor ingresa la fecha de emisión de OT.");
+      return;
+    }
+
+    if (!responsable) {
+      alert("⚠️ Por favor selecciona el responsable del informe.");
       return;
     }
 
@@ -1260,7 +1288,8 @@
           solicitante: document.getElementById('field-solicitante').value.trim(),
           rfc: document.getElementById('field-rfc').value.trim(),
           telefono: document.getElementById('field-tel').value.trim(),
-          direccion: document.getElementById('field-dir').value.trim()
+          direccion: document.getElementById('field-dir').value.trim(),
+          responsable: document.getElementById('field-responsable').value
         },
         files: []
       };
@@ -1453,6 +1482,7 @@
       'OT': r.ot || '',
       'Cliente': r.cliente || '',
       'NOM': r.nom || '',
+      'Responsable': r.responsable || '',
       'Fecha Servicio': r.fecha || '',
       'Fecha Entrega': r.fechaEntrega || '',
       'Estatus': r.estatus || '',
@@ -1583,8 +1613,8 @@
       // Contar activos (no finalizados)
       activos++;
 
-      // Contar en revisión técnica (EN PROCESO)
-      if (estatusNorm.includes('EN PROCESO')) {
+      // Contar en revisión técnica (PARA REVISION)
+      if (estatusNorm.includes('PARA REVISION')) {
         revision++;
       }
 
@@ -1707,6 +1737,7 @@
       <th>OT</th>
       <th>Cliente</th>
       <th>NOM</th>
+      <th>Responsable</th>
       <th>Fecha Servicio</th>
       <th>Entrega</th>
       <th>Estatus</th>
@@ -1726,15 +1757,18 @@
           <td>${escapeHtml(r.ot || '')}</td>
           <td>${escapeHtml(r.cliente || '')}</td>
           <td>${escapeHtml(r.nom || '')}</td>
+          <td>${escapeHtml(r.responsable || '')}</td>
           <td>${escapeHtml(r.fecha || '')}</td>
           <td>${escapeHtml(r.fechaEntrega || '')} ${!estatusNorm.includes('FINALIZADO') ? vencimientoBadge : ''}</td>
           <td>
             <select class="status-select ${getEstatusClass(r.estatus)}"
                     onchange="cambiarEstatus('${escapeHtml(r.ot || '')}', this.value, ${index})"
                     style="border-color: ${getEstatusColor(r.estatus)};">
-              <option value="EN PROCESO" ${r.estatus === 'EN PROCESO' ? 'selected' : ''}>En Proceso</option>
-              <option value="FINALIZADO" ${r.estatus === 'FINALIZADO' ? 'selected' : ''}>Finalizado</option>
-              <option value="CANCELADO" ${r.estatus === 'CANCELADO' ? 'selected' : ''}>Cancelado</option>
+              <option value="EN PROCESO" ${estatusNorm === 'EN PROCESO' ? 'selected' : ''}>En Proceso</option>
+              <option value="PARA REVISION" ${estatusNorm === 'PARA REVISION' ? 'selected' : ''}>Para Revision</option>
+              <option value="PARA IMPRESION" ${estatusNorm === 'PARA IMPRESION' ? 'selected' : ''}>Para Impresion</option>
+              <option value="FINALIZADO" ${estatusNorm === 'FINALIZADO' ? 'selected' : ''}>Finalizado</option>
+              <option value="CANCELADO" ${estatusNorm === 'CANCELADO' ? 'selected' : ''}>Cancelado</option>
             </select>
           </td>
           <td><a class="clean" href="${r.linkDrive || '#'}" target="_blank">📁 Ver</a></td>
@@ -1748,6 +1782,8 @@
     const estatusNorm = (estatus || '').toUpperCase();
     if (estatusNorm.includes('FINALIZADO')) return '<span class="badge badge-finalizado">FINALIZADO</span>';
     if (estatusNorm.includes('CANCELADO')) return '<span class="badge badge-cancelado">CANCELADO</span>';
+    if (estatusNorm.includes('PARA REVISION')) return '<span class="badge badge-revision">PARA REVISION</span>';
+    if (estatusNorm.includes('PARA IMPRESION')) return '<span class="badge badge-impresion">PARA IMPRESION</span>';
     return '<span class="badge badge-proceso">EN PROCESO</span>';
   }
 
@@ -1755,6 +1791,8 @@
     const estatusNorm = (estatus || '').toUpperCase();
     if (estatusNorm.includes('FINALIZADO')) return 'badge-finalizado';
     if (estatusNorm.includes('CANCELADO')) return 'badge-cancelado';
+    if (estatusNorm.includes('PARA REVISION')) return 'badge-revision';
+    if (estatusNorm.includes('PARA IMPRESION')) return 'badge-impresion';
     return 'badge-proceso';
   }
 
@@ -1762,6 +1800,8 @@
     const estatusNorm = (estatus || '').toUpperCase();
     if (estatusNorm.includes('FINALIZADO')) return '#0f5132';
     if (estatusNorm.includes('CANCELADO')) return '#842029';
+    if (estatusNorm.includes('PARA REVISION')) return '#856404';
+    if (estatusNorm.includes('PARA IMPRESION')) return '#5a2d82';
     return '#084298';
   }
 
@@ -1849,7 +1889,7 @@
 
         if (filtroMetricaActivo === 'vencidos' && estadoVencimiento !== 'vencido') return false;
         if (filtroMetricaActivo === 'proximos' && estadoVencimiento !== 'proximo') return false;
-        if (filtroMetricaActivo === 'revision' && !estatusNorm.includes('EN PROCESO')) return false;
+        if (filtroMetricaActivo === 'revision' && !estatusNorm.includes('PARA REVISION')) return false;
         // 'entregados' ya está manejado por vistaActual
       }
 
@@ -1857,7 +1897,8 @@
       const matchSearch = !searchTerm ||
         (r.ot || '').toLowerCase().includes(searchTerm) ||
         (r.cliente || '').toLowerCase().includes(searchTerm) ||
-        (r.numInforme || '').toLowerCase().includes(searchTerm);
+        (r.numInforme || '').toLowerCase().includes(searchTerm) ||
+        (r.responsable || '').toLowerCase().includes(searchTerm);
 
       // Filtro de estatus
       const matchEstatus = !estatusFilter || estatusNorm.includes(estatusFilter);
@@ -1983,7 +2024,8 @@
       document.getElementById('field-rfc'),
       document.getElementById('field-tel'),
       document.getElementById('field-dir'),
-      document.getElementById('field-fecha')
+      document.getElementById('field-fecha'),
+      document.getElementById('field-responsable')
     ];
 
     paso2Inputs.forEach(input => {

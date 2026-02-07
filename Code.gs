@@ -24,6 +24,7 @@ const ORDENES_SHEET_NAME     = 'PANEL';
 // M: EsCapacitacion (SI/NO)
 // N: Estatus
 // O: LinkDrive
+// P: Responsable
 
 function doGet(e) {
   const action   = (e && e.parameter && e.parameter.action) ? String(e.parameter.action) : '';
@@ -167,7 +168,7 @@ function createExpedienteSafe_(payload) {
       sheet.appendRow([
         'Timestamp', 'NumInforme', 'TipoOrden', 'OT', 'NOM', 'Cliente',
         'Solicitante', 'RFC', 'Telefono', 'Direccion', 'FechaServicio',
-        'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive'
+        'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive', 'Responsable'
       ]);
     }
 
@@ -187,7 +188,8 @@ function createExpedienteSafe_(payload) {
       info.entrega || '',                   // L: FechaEntrega
       '',                                   // M: (Reservado)
       'EN PROCESO',                         // N: Estatus
-      expedienteFolder.getUrl()             // O: LinkDrive
+      expedienteFolder.getUrl(),            // O: LinkDrive
+      info.responsable || ''                // P: Responsable
     ]);
 
     return {
@@ -329,9 +331,9 @@ function updateEstatusSafe_(data) {
     }
 
     // Validar estatus
-    const estatusValidos = ['EN PROCESO', 'FINALIZADO', 'CANCELADO'];
+    const estatusValidos = ['EN PROCESO', 'FINALIZADO', 'PARA REVISION', 'PARA IMPRESION', 'CANCELADO'];
     if (!estatusValidos.includes(nuevoEstatus.toUpperCase())) {
-      return { success: false, error: 'Estatus no válido. Usa: EN PROCESO, FINALIZADO o CANCELADO.' };
+      return { success: false, error: 'Estatus no válido. Usa: EN PROCESO, FINALIZADO, PARA REVISION, PARA IMPRESION o CANCELADO.' };
     }
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -396,7 +398,8 @@ function getTableroSafe_() {
       fechaEntrega:   r[11], // L: FechaEntrega
       esCapacitacion: r[12], // M: EsCapacitacion
       estatus:        r[13], // N: Estatus
-      linkDrive:      r[14]  // O: LinkDrive
+      linkDrive:      r[14], // O: LinkDrive
+      responsable:    r[15] || ''  // P: Responsable
     })).reverse();
 
     return { success: true, data };
@@ -454,36 +457,41 @@ function getConsecutivoSafe_(params) {
       return { success: false, error: `No existe la hoja "${SHEET_NAME}".` };
     }
 
-    // Construir prefijo del número de informe
-    const prefix = `EA-${anio}${mes}-${nom}`;
-
-    // Buscar el último consecutivo con este prefijo
+    // Formato: EA-{YYMM}-{CONSECUTIVO_GLOBAL}-{NOM}
+    // El consecutivo es GLOBAL (no por prefijo) para mantener secuencia en carpetas
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) {
       // Primera vez, consecutivo 0001
-      return { success: true, numeroInforme: `${prefix}-0001` };
+      return { success: true, numeroInforme: `EA-${anio}${mes}-0001-${nom}` };
     }
 
     // Leer columna B (NumInforme) desde la fila 2
     const values = sheet.getRange(2, 2, lastRow - 1, 1).getDisplayValues().flat();
 
-    // Filtrar por el prefijo y extraer consecutivos
-    const regex = new RegExp(`^${escapeRegex_(prefix)}-(\\d{4})$`);
+    // Buscar el máximo consecutivo GLOBAL en todos los informes
+    // Soporta formato nuevo EA-YYMM-CONS-NOM y formato viejo EA-YYMM-NOM-CONS
+    const regexNew = /^EA-\d{4}-(\d{4})-/;
+    const regexOld = /^EA-\d{4}-[A-Za-z0-9]+-(\d{4})$/;
     let maxConsecutivo = 0;
 
     values.forEach(val => {
-      const match = String(val || '').trim().match(regex);
+      const v = String(val || '').trim();
+      let match = v.match(regexNew);
       if (match) {
         const consecutivo = parseInt(match[1], 10);
-        if (consecutivo > maxConsecutivo) {
-          maxConsecutivo = consecutivo;
-        }
+        if (consecutivo > maxConsecutivo) maxConsecutivo = consecutivo;
+        return;
+      }
+      match = v.match(regexOld);
+      if (match) {
+        const consecutivo = parseInt(match[1], 10);
+        if (consecutivo > maxConsecutivo) maxConsecutivo = consecutivo;
       }
     });
 
     // Siguiente consecutivo
     const siguiente = String(maxConsecutivo + 1).padStart(4, '0');
-    return { success: true, numeroInforme: `${prefix}-${siguiente}` };
+    return { success: true, numeroInforme: `EA-${anio}${mes}-${siguiente}-${nom}` };
 
   } catch (err) {
     Logger.log('Error en getConsecutivo: ' + err.message);
@@ -555,11 +563,11 @@ function inicializarHoja() {
     sheet.appendRow([
       'Timestamp', 'NumInforme', 'TipoOrden', 'OT', 'NOM', 'Cliente',
       'Solicitante', 'RFC', 'Telefono', 'Direccion', 'FechaServicio',
-      'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive'
+      'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive', 'Responsable'
     ]);
 
     // Formatear encabezados
-    const headerRange = sheet.getRange(1, 1, 1, 15);
+    const headerRange = sheet.getRange(1, 1, 1, 16);
     headerRange.setFontWeight('bold');
     headerRange.setBackground('#1e5a3e');
     headerRange.setFontColor('#ffffff');
@@ -581,8 +589,9 @@ function inicializarHoja() {
     sheet.setColumnWidth(11, 100); // FechaServicio
     sheet.setColumnWidth(12, 100); // FechaEntrega
     sheet.setColumnWidth(13, 100); // EsCapacitacion
-    sheet.setColumnWidth(14, 100); // Estatus
+    sheet.setColumnWidth(14, 120); // Estatus
     sheet.setColumnWidth(15, 300); // LinkDrive
+    sheet.setColumnWidth(16, 150); // Responsable
 
     Logger.log('✅ Hoja inicializada correctamente');
   } else {
@@ -606,12 +615,14 @@ function obtenerEstadisticas() {
     return;
   }
 
-  const data = sheet.getRange(2, 1, lastRow - 1, 15).getValues();
+  const data = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
 
   let totalOT = 0;
   let totalOTB = 0;
   let enProceso = 0;
   let finalizados = 0;
+  let paraRevision = 0;
+  let paraImpresion = 0;
   let cancelados = 0;
   let conCapacitacion = 0;
 
@@ -625,6 +636,8 @@ function obtenerEstadisticas() {
 
     if (estatus.includes('PROCESO')) enProceso++;
     else if (estatus.includes('FINALIZADO')) finalizados++;
+    else if (estatus.includes('PARA REVISION')) paraRevision++;
+    else if (estatus.includes('PARA IMPRESION')) paraImpresion++;
     else if (estatus.includes('CANCELADO')) cancelados++;
 
     if (esCapacitacion === 'SI') conCapacitacion++;
@@ -639,6 +652,8 @@ function obtenerEstadisticas() {
   Logger.log('');
   Logger.log('Por Estatus:');
   Logger.log(`  - En Proceso: ${enProceso}`);
+  Logger.log(`  - Para Revisión: ${paraRevision}`);
+  Logger.log(`  - Para Impresión: ${paraImpresion}`);
   Logger.log(`  - Finalizados: ${finalizados}`);
   Logger.log(`  - Cancelados: ${cancelados}`);
 }
