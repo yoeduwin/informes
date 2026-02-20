@@ -25,6 +25,9 @@ const ORDENES_SHEET_NAME     = 'PANEL';
 // N: Estatus
 // O: LinkDrive
 // P: Responsable
+// Q: ClienteInicial
+// R: ClienteFinal
+// S: Sucursal
 
 function doGet(e) {
   const action   = (e && e.parameter && e.parameter.action) ? String(e.parameter.action) : '';
@@ -125,16 +128,18 @@ function createExpedienteSafe_(payload) {
     const consecutivoMatch = numInforme.match(/-(\d{4})$/);
     const consecutivoPrefix = consecutivoMatch ? consecutivoMatch[1] : '0000';
     const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID);
-    const folderName = `${consecutivoPrefix} - ${numInforme} - ${info.ot} - ${(info.cliente || 'SIN_CLIENTE')}`;
+    
+    // Nombramos la carpeta usando la Sucursal (Cliente Final) si existe, si no Cliente Inicial
+    const nombreClienteDirectorio = info.clienteFinal || info.clienteInicial || info.cliente || 'SIN_CLIENTE';
+    const folderName = `${consecutivoPrefix} - ${numInforme} - ${info.ot} - ${nombreClienteDirectorio}`;
     const expedienteFolder = rootFolder.createFolder(folderName);
 
-    // 2) Crear subcarpetas
+    // 2) Crear subcarpetas (Modificado a las 4 solicitadas)
     const folders = {
       ORDEN_TRABAJO: expedienteFolder.createFolder('1. ORDEN_TRABAJO'),
-      PERFIL_DATOS:  expedienteFolder.createFolder('2. PERFIL_DATOS'),
-      HOJAS_CAMPO:   expedienteFolder.createFolder('3. HOJAS_CAMPO'),
-      CROQUIS:       expedienteFolder.createFolder('4. CROQUIS_PLANOS'),
-      OTROS:         expedienteFolder.createFolder('5. OTROS')
+      HOJAS_CAMPO:   expedienteFolder.createFolder('2. HDC'),
+      CROQUIS:       expedienteFolder.createFolder('3. CROQUIS'),
+      FOTOS:         expedienteFolder.createFolder('4. FOTOS')
     };
 
     // 3) Guardar archivos en sus respectivas carpetas
@@ -147,6 +152,7 @@ function createExpedienteSafe_(payload) {
           file.type || 'application/octet-stream',
           file.name || 'archivo'
         );
+        // El perfil de datos (Excel) lo mandamos a la carpeta raíz porque ya no hay carpeta "2. PERFIL_DATOS"
         const targetFolder = folders[file.category] || expedienteFolder;
         targetFolder.createFile(blob);
       } catch (err) {
@@ -160,7 +166,7 @@ function createExpedienteSafe_(payload) {
         const sheetUrl = `https://docs.google.com/spreadsheets/d/${info.perfilSheetId}`;
         const linkContent = `Perfil de Datos - Google Sheet\n\nEnlace: ${sheetUrl}\n\nID: ${info.perfilSheetId}`;
         const linkBlob = Utilities.newBlob(linkContent, 'text/plain', 'Perfil_GoogleSheet_Link.txt');
-        folders.PERFIL_DATOS.createFile(linkBlob);
+        expedienteFolder.createFile(linkBlob); // Guardado en raíz
       } catch (err) {
         Logger.log('Error guardando link de Google Sheet: ' + err.message);
       }
@@ -177,18 +183,19 @@ function createExpedienteSafe_(payload) {
       sheet.appendRow([
         'Timestamp', 'NumInforme', 'TipoOrden', 'OT', 'NOM', 'Cliente',
         'Solicitante', 'RFC', 'Telefono', 'Direccion', 'FechaServicio',
-        'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive', 'Responsable'
+        'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive', 'Responsable',
+        'ClienteInicial', 'ClienteFinal', 'Sucursal'
       ]);
     }
 
-    // Agregar registro
+    // Agregar registro (Incluyendo columnas Q, R, S)
     sheet.appendRow([
       new Date(),                           // A: Timestamp
       numInforme,                           // B: NumInforme
       tipoOrden,                            // C: TipoOrden
       info.ot,                              // D: OT
       info.nom || '',                       // E: NOM
-      info.cliente || '',                   // F: Cliente
+      info.cliente || info.clienteInicial || '', // F: Cliente (Respaldo/Compatibilidad)
       info.solicitante || '',               // G: Solicitante
       info.rfc || '',                       // H: RFC
       info.telefono || '',                  // I: Telefono
@@ -196,9 +203,12 @@ function createExpedienteSafe_(payload) {
       info.fecha || '',                     // K: FechaServicio
       info.entrega || '',                   // L: FechaEntrega
       '',                                   // M: (Reservado)
-      'EN PROCESO',                         // N: Estatus
+      info.estatus || 'NO INICIADO',        // N: Estatus (Default NO INICIADO)
       expedienteFolder.getUrl(),            // O: LinkDrive
-      info.responsable || ''                // P: Responsable
+      info.responsable || '',               // P: Responsable
+      info.clienteInicial || '',            // Q: ClienteInicial
+      info.clienteFinal || '',              // R: ClienteFinal
+      info.sucursal || ''                   // S: Sucursal
     ]);
 
     return {
@@ -265,13 +275,12 @@ function addFilesToExpedienteSafe_(payload) {
 
     const expedienteFolder = DriveApp.getFolderById(folderIdMatch[1]);
 
-    // Obtener o crear las subcarpetas
+    // Obtener o crear las subcarpetas (Modificadas)
     const subfolderNames = {
       ORDEN_TRABAJO: '1. ORDEN_TRABAJO',
-      PERFIL_DATOS: '2. PERFIL_DATOS',
-      HOJAS_CAMPO: '3. HOJAS_CAMPO',
-      CROQUIS: '4. CROQUIS_PLANOS',
-      OTROS: '5. OTROS'
+      HOJAS_CAMPO: '2. HDC',
+      CROQUIS: '3. CROQUIS',
+      FOTOS: '4. FOTOS'
     };
 
     const folders = {};
@@ -339,10 +348,10 @@ function updateEstatusSafe_(data) {
       return { success: false, error: 'Faltan parámetros: ot o estatus.' };
     }
 
-    // Validar estatus
-    const estatusValidos = ['EN PROCESO', 'FINALIZADO', 'PARA REVISION', 'PARA IMPRESION', 'CANCELADO'];
+    // Validar estatus (Se añade NO INICIADO)
+    const estatusValidos = ['NO INICIADO', 'EN PROCESO', 'FINALIZADO', 'PARA REVISION', 'PARA IMPRESION', 'CANCELADO'];
     if (!estatusValidos.includes(nuevoEstatus.toUpperCase())) {
-      return { success: false, error: 'Estatus no válido. Usa: EN PROCESO, FINALIZADO, PARA REVISION, PARA IMPRESION o CANCELADO.' };
+      return { success: false, error: 'Estatus no válido. Usa: NO INICIADO, EN PROCESO, FINALIZADO, PARA REVISION, PARA IMPRESION o CANCELADO.' };
     }
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -450,7 +459,7 @@ function getTableroSafe_() {
     const values = sheet.getDataRange().getDisplayValues();
     if (values.length <= 1) return { success: true, data: [] };
 
-    // Mapear según la nueva estructura
+    // Mapear según la nueva estructura y añadir campos Q, R, S
     const data = values.slice(1).map(r => ({
       timestamp:      r[0],  // A: Timestamp
       numInforme:     r[1],  // B: NumInforme
@@ -467,7 +476,10 @@ function getTableroSafe_() {
       esCapacitacion: r[12], // M: EsCapacitacion
       estatus:        r[13], // N: Estatus
       linkDrive:      r[14], // O: LinkDrive
-      responsable:    r[15] || ''  // P: Responsable
+      responsable:    r[15] || '', // P: Responsable
+      clienteInicial: r[16] || '', // Q: ClienteInicial
+      clienteFinal:   r[17] || '', // R: ClienteFinal
+      sucursal:       r[18] || ''  // S: Sucursal
     })).reverse();
 
     return { success: true, data };
@@ -487,8 +499,8 @@ function getOrdenesSafe_() {
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { success: true, data: [] };
 
-    // Leer columnas B (OT), E (Cliente) y Q (Estatus)
-    // Columna B = 2, E = 5, Q = 17
+    // Leer hasta la columna 17 (Q)
+    // Columna B = 2, C = 3, D = 4, E = 5, Q = 17
     const values = sheet.getRange(2, 1, lastRow - 1, 17).getDisplayValues();
 
     // Filtrar: no mostrar si columna Q (índice 16) dice "ENTREGADO"
@@ -498,8 +510,10 @@ function getOrdenesSafe_() {
         return estatus !== 'ENTREGADO';
       })
       .map(row => ({
-        ot: row[1],      // Columna B (índice 1)
-        cliente: row[4]  // Columna E (índice 4)
+        ot: row[1],             // Columna B (índice 1)
+        clienteInicial: row[2], // Columna C (índice 2)
+        clienteFinal: row[3],   // Columna D (índice 3)
+        cliente: row[4]         // Columna E (índice 4)
       }))
       .filter(orden => orden.ot && orden.ot.trim() !== ''); // Solo órdenes con número válido
 
@@ -515,6 +529,7 @@ function getConsecutivoSafe_(params) {
     const anio = params.anio || '';
     const mes = params.mes || '';
     const nom = params.nom || '';
+    const tipo = params.tipo || 'OT'; // Diferenciar OT de OTB
 
     if (!anio || !mes || !nom) {
       return { success: false, error: 'Faltan parámetros: anio, mes o nom' };
@@ -526,27 +541,31 @@ function getConsecutivoSafe_(params) {
     }
 
     // Formato: EA-{YYMM}-{NOM}-{CONSECUTIVO_GLOBAL}
-    // El consecutivo es GLOBAL (no por prefijo NOM) para mantener secuencia continua
-    // La carpeta en Drive usa el consecutivo como prefijo para ordenar visualmente
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) {
       // Primera vez, consecutivo 0001
       return { success: true, numeroInforme: `EA-${anio}${mes}-${nom}-0001` };
     }
 
-    // Leer columna B (NumInforme) desde la fila 2
-    const values = sheet.getRange(2, 2, lastRow - 1, 1).getDisplayValues().flat();
+    // Leer columna B (NumInforme) y C (TipoOrden) desde la fila 2
+    const dataRange = sheet.getRange(2, 2, lastRow - 1, 2).getDisplayValues();
 
-    // Buscar el máximo consecutivo GLOBAL en todos los informes
+    // Buscar el máximo consecutivo GLOBAL en todos los informes DEL MISMO TIPO (OT u OTB)
     // Formato: EA-YYMM-NOM-CONS (el consecutivo siempre es el último segmento de 4 dígitos)
     const regex = /^EA-\d{4}-[A-Za-z0-9]+-(\d{4})$/;
     let maxConsecutivo = 0;
 
-    values.forEach(val => {
-      const match = String(val || '').trim().match(regex);
-      if (match) {
-        const consecutivo = parseInt(match[1], 10);
-        if (consecutivo > maxConsecutivo) maxConsecutivo = consecutivo;
+    dataRange.forEach(row => {
+      const valNum = row[0]; // Columna B
+      const valTipo = String(row[1] || '').trim().toUpperCase(); // Columna C
+
+      // Si el tipo de orden coincide (Ambos OT o Ambos OTB), se toma en cuenta su consecutivo
+      if (valTipo === tipo.toUpperCase()) {
+        const match = String(valNum || '').trim().match(regex);
+        if (match) {
+          const consecutivo = parseInt(match[1], 10);
+          if (consecutivo > maxConsecutivo) maxConsecutivo = consecutivo;
+        }
       }
     });
 
@@ -629,11 +648,12 @@ function inicializarHoja() {
     sheet.appendRow([
       'Timestamp', 'NumInforme', 'TipoOrden', 'OT', 'NOM', 'Cliente',
       'Solicitante', 'RFC', 'Telefono', 'Direccion', 'FechaServicio',
-      'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive', 'Responsable'
+      'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive', 'Responsable',
+      'ClienteInicial', 'ClienteFinal', 'Sucursal'
     ]);
 
     // Formatear encabezados
-    const headerRange = sheet.getRange(1, 1, 1, 16);
+    const headerRange = sheet.getRange(1, 1, 1, 19);
     headerRange.setFontWeight('bold');
     headerRange.setBackground('#1e5a3e');
     headerRange.setFontColor('#ffffff');
@@ -658,6 +678,9 @@ function inicializarHoja() {
     sheet.setColumnWidth(14, 120); // Estatus
     sheet.setColumnWidth(15, 300); // LinkDrive
     sheet.setColumnWidth(16, 150); // Responsable
+    sheet.setColumnWidth(17, 200); // ClienteInicial
+    sheet.setColumnWidth(18, 200); // ClienteFinal
+    sheet.setColumnWidth(19, 150); // Sucursal
 
     Logger.log('✅ Hoja inicializada correctamente');
   } else {
