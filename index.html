@@ -532,8 +532,23 @@
     validarProgreso();
   });
 
-  const NOMS_OT = ['011', '015', '022', '024', '025', '081'];
-  const NOMS_OTB = ['001', '002', '004', '005', '006', '009', '017', '018', '019', '020', '026', '027', '029', '030', '033', '035', '036', 'LEY-SILLA', 'PIPC'];
+  const ALL_NOMS = [
+    'NOM-001-STPS-2008', 'NOM-002-STPS-2010', 'NOM-004-STPS-1999',
+    'NOM-005-STPS-1998', 'NOM-006-STPS-2014', 'NOM-009-STPS-2011',
+    'NOM-010-STPS-2014', 'NOM-011-STPS-2001', 'NOM-015-STPS-2001',
+    'NOM-017-STPS-2008', 'NOM-018-STPS-2015', 'NOM-019-STPS-2011',
+    'NOM-020-STPS-2011', 'NOM-022-STPS-2015', 'NOM-025-STPS-2008',
+    'NOM-026-STPS-2008', 'NOM-027-STPS-2008', 'NOM-028-STPS-2012',
+    'NOM-029-STPS-2011', 'NOM-030-STPS-2009', 'NOM-033-STPS-2015',
+    'NOM-034-STPS-2016', 'NOM-035-STPS-2018', 'NOM-036-1-STPS-2018',
+    'NOM-036-2-STPS-2023', 'NOM-037-STPS-2023'
+  ];
+
+  // Extrae el código corto de una NOM completa: "NOM-011-STPS-2001" → "011", "NOM-036-1-STPS-2018" → "036-1"
+  function extraerCodigoNOM(nom) {
+    const m = String(nom || '').match(/^NOM-(\d{3}(?:-\d+)?)-STPS/);
+    return m ? m[1] : nom;
+  }
 
   // 2. LÓGICA DE EXCEL
   document.getElementById('excelFile').addEventListener('change', function(e) {
@@ -577,13 +592,11 @@
     const ot = document.getElementById('field-ot').value.trim().toUpperCase();
     const tipo = document.getElementById('field-tipo-orden');
     const datalist = document.getElementById('nom-list');
-    
-    // Se extrae explícitamente si es OTB u OT. Esta variable se manda al backend.
+
     tipo.value = ot.startsWith('OTB') ? 'OTB' : (ot.startsWith('OT') ? 'OT' : '');
-    const noms = tipo.value === 'OTB' ? NOMS_OTB : (tipo.value === 'OT' ? NOMS_OT : []);
 
     datalist.innerHTML = '';
-    noms.forEach(n => datalist.appendChild(new Option(n, n)));
+    ALL_NOMS.forEach(n => datalist.appendChild(new Option(n, n)));
     document.getElementById('field-nom').value = '';
     generarNumeroInforme();
   }
@@ -594,20 +607,27 @@
     const field = document.getElementById('field-num-informe');
 
     if (!ot || !nom) { field.value = ''; return; }
-    
-    // Identificador para tu backend: OT vs OTB
+
     const tipoOrden = ot.startsWith('OTB') ? 'OTB' : 'OT';
+    const nomCode = extraerCodigoNOM(nom);
 
-    // Generador visual (se actualizará con el valor real del backend si se obtiene a tiempo)
     field.value = 'Generando formato...';
-    
-    // Llamada al backend para el consecutivo exacto
-    const match = ot.match(/OT[B]?(\d{2})-(\d{4})/);
-    if (!match) return;
 
-    jsonp(`${SCRIPT_URL}?action=getConsecutivo&anio=${match[1]}&mes=${match[2].substring(0,2)}&nom=${encodeURIComponent(nom)}&tipo=${tipoOrden}`, 
-      (res) => { field.value = (res && res.success) ? res.numeroInforme : `[Automático al enviar]`; }, 
-      () => { field.value = `[Automático al enviar]`; }
+    // Extraer año y mes de la OT; si no matchea, usar fecha actual
+    const match = ot.match(/OT[B]?(\d{2})-(\d{4})/);
+    let anio, mes;
+    if (match) {
+      anio = match[1];
+      mes = match[2].substring(0, 2);
+    } else {
+      const now = new Date();
+      anio = String(now.getFullYear()).slice(-2);
+      mes = String(now.getMonth() + 1).padStart(2, '0');
+    }
+
+    jsonp(`${SCRIPT_URL}?action=getConsecutivo&anio=${anio}&mes=${mes}&nom=${encodeURIComponent(nomCode)}&tipo=${tipoOrden}`,
+      (res) => { field.value = (res && res.success) ? res.numeroInforme : '[Automático al enviar]'; },
+      () => { field.value = '[Automático al enviar]'; }
     );
   }
 
@@ -636,7 +656,8 @@
     const ot = document.getElementById('field-ot').value.trim();
     const nom = document.getElementById('field-nom').value.trim();
     
-    if(allTableroData && allTableroData.find(r => String(r.ot).toUpperCase() === ot.toUpperCase() && String(r.nom).toUpperCase() === nom.toUpperCase())) {
+    const nomCode = extraerCodigoNOM(nom);
+    if(allTableroData && allTableroData.find(r => String(r.ot).toUpperCase() === ot.toUpperCase() && extraerCodigoNOM(String(r.nom)).toUpperCase() === nomCode.toUpperCase())) {
       alert(`⚠️ Ya existe un expediente registrado para la OT "${ot}" con el servicio "${nom}".`); return;
     }
 
