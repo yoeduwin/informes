@@ -8,13 +8,13 @@ const ROOT_FOLDER_ID = '1kd13FVLhy7xQX7M9QrkKNB33DlIWHzGb';
 const ORDENES_SPREADSHEET_ID = '1pWIzrtLAh_YHow1LH55tIfgsCUoct-64JjPaBk5u10U';
 const ORDENES_SHEET_NAME     = 'PANEL';
 
-// Estructura actualizada en la hoja (fila 1 como encabezados):
+// Estructura de la hoja (fila 1 como encabezados, 17 columnas A-Q):
 // A: Timestamp
 // B: NumInforme
 // C: TipoOrden (OT/OTB)
 // D: OT
 // E: NOM
-// F: Cliente
+// F: Cliente (Cliente Inicial / Razón Social)
 // G: Solicitante
 // H: RFC
 // I: Telefono
@@ -25,9 +25,7 @@ const ORDENES_SHEET_NAME     = 'PANEL';
 // N: Estatus
 // O: LinkDrive
 // P: Responsable
-// Q: ClienteInicial
-// R: ClienteFinal
-// S: Sucursal
+// Q: Sucursal (Cliente Final / Sucursal)
 
 function doGet(e) {
   const action   = (e && e.parameter && e.parameter.action) ? String(e.parameter.action) : '';
@@ -129,8 +127,8 @@ function createExpedienteSafe_(payload) {
     const consecutivoPrefix = consecutivoMatch ? consecutivoMatch[1] : '0000';
     const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID);
     
-    // Nombramos la carpeta usando la Sucursal (Cliente Final) si existe, si no Cliente Inicial
-    const nombreClienteDirectorio = info.clienteFinal || info.clienteInicial || info.cliente || 'SIN_CLIENTE';
+    // Nombramos la carpeta usando la Sucursal si existe, si no el Cliente
+    const nombreClienteDirectorio = info.sucursal || info.cliente || 'SIN_CLIENTE';
     const folderName = `${consecutivoPrefix} - ${numInforme} - ${info.ot} - ${nombreClienteDirectorio}`;
     const expedienteFolder = rootFolder.createFolder(folderName);
 
@@ -184,18 +182,18 @@ function createExpedienteSafe_(payload) {
         'Timestamp', 'NumInforme', 'TipoOrden', 'OT', 'NOM', 'Cliente',
         'Solicitante', 'RFC', 'Telefono', 'Direccion', 'FechaServicio',
         'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive', 'Responsable',
-        'ClienteInicial', 'ClienteFinal', 'Sucursal'
+        'Sucursal'
       ]);
     }
 
-    // Agregar registro (Incluyendo columnas Q, R, S)
+    // Agregar registro (17 columnas A-Q)
     sheet.appendRow([
       new Date(),                           // A: Timestamp
       numInforme,                           // B: NumInforme
       tipoOrden,                            // C: TipoOrden
       info.ot,                              // D: OT
       info.nom || '',                       // E: NOM
-      info.cliente || info.clienteInicial || '', // F: Cliente (Respaldo/Compatibilidad)
+      info.cliente || '',                   // F: Cliente (Cliente Inicial)
       info.solicitante || '',               // G: Solicitante
       info.rfc || '',                       // H: RFC
       info.telefono || '',                  // I: Telefono
@@ -206,9 +204,7 @@ function createExpedienteSafe_(payload) {
       info.estatus || 'NO INICIADO',        // N: Estatus (Default NO INICIADO)
       expedienteFolder.getUrl(),            // O: LinkDrive
       info.responsable || '',               // P: Responsable
-      info.clienteInicial || '',            // Q: ClienteInicial
-      info.clienteFinal || '',              // R: ClienteFinal
-      info.sucursal || ''                   // S: Sucursal
+      info.sucursal || ''                   // Q: Sucursal (Cliente Final)
     ]);
 
     return {
@@ -459,14 +455,14 @@ function getTableroSafe_() {
     const values = sheet.getDataRange().getDisplayValues();
     if (values.length <= 1) return { success: true, data: [] };
 
-    // Mapear según la nueva estructura y añadir campos Q, R, S
+    // Mapear según estructura real (17 columnas A-Q)
     const data = values.slice(1).map(r => ({
       timestamp:      r[0],  // A: Timestamp
       numInforme:     r[1],  // B: NumInforme
       tipoOrden:      r[2],  // C: TipoOrden
       ot:             r[3],  // D: OT
       nom:            r[4],  // E: NOM
-      cliente:        r[5],  // F: Cliente
+      cliente:        r[5],  // F: Cliente (Cliente Inicial)
       solicitante:    r[6],  // G: Solicitante
       rfc:            r[7],  // H: RFC
       telefono:       r[8],  // I: Telefono
@@ -477,9 +473,7 @@ function getTableroSafe_() {
       estatus:        r[13], // N: Estatus
       linkDrive:      r[14], // O: LinkDrive
       responsable:    r[15] || '', // P: Responsable
-      clienteInicial: r[16] || '', // Q: ClienteInicial
-      clienteFinal:   r[17] || '', // R: ClienteFinal
-      sucursal:       r[18] || ''  // S: Sucursal
+      sucursal:       r[16] || ''  // Q: Sucursal (Cliente Final)
     })).reverse();
 
     return { success: true, data };
@@ -649,11 +643,11 @@ function inicializarHoja() {
       'Timestamp', 'NumInforme', 'TipoOrden', 'OT', 'NOM', 'Cliente',
       'Solicitante', 'RFC', 'Telefono', 'Direccion', 'FechaServicio',
       'FechaEntrega', 'EsCapacitacion', 'Estatus', 'LinkDrive', 'Responsable',
-      'ClienteInicial', 'ClienteFinal', 'Sucursal'
+      'Sucursal'
     ]);
 
     // Formatear encabezados
-    const headerRange = sheet.getRange(1, 1, 1, 19);
+    const headerRange = sheet.getRange(1, 1, 1, 17);
     headerRange.setFontWeight('bold');
     headerRange.setBackground('#1e5a3e');
     headerRange.setFontColor('#ffffff');
@@ -667,7 +661,7 @@ function inicializarHoja() {
     sheet.setColumnWidth(3, 80);   // TipoOrden
     sheet.setColumnWidth(4, 130);  // OT
     sheet.setColumnWidth(5, 80);   // NOM
-    sheet.setColumnWidth(6, 200);  // Cliente
+    sheet.setColumnWidth(6, 200);  // Cliente (Cliente Inicial)
     sheet.setColumnWidth(7, 150);  // Solicitante
     sheet.setColumnWidth(8, 120);  // RFC
     sheet.setColumnWidth(9, 100);  // Telefono
@@ -678,9 +672,7 @@ function inicializarHoja() {
     sheet.setColumnWidth(14, 120); // Estatus
     sheet.setColumnWidth(15, 300); // LinkDrive
     sheet.setColumnWidth(16, 150); // Responsable
-    sheet.setColumnWidth(17, 200); // ClienteInicial
-    sheet.setColumnWidth(18, 200); // ClienteFinal
-    sheet.setColumnWidth(19, 150); // Sucursal
+    sheet.setColumnWidth(17, 200); // Sucursal (Cliente Final)
 
     Logger.log('✅ Hoja inicializada correctamente');
   } else {
@@ -704,7 +696,7 @@ function obtenerEstadisticas() {
     return;
   }
 
-  const data = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
+  const data = sheet.getRange(2, 1, lastRow - 1, 17).getValues();
 
   let totalOT = 0;
   let totalOTB = 0;

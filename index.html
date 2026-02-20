@@ -666,17 +666,13 @@
       const basePayload = {
         action: 'createExpediente',
         data: {
-          ot, nom, 
+          ot, nom,
           numInforme: document.getElementById('field-num-informe').value,
-          clienteInicial: document.getElementById('field-cliente-inicial').value.trim(),
-          clienteFinal: document.getElementById('field-cliente-final').value.trim(),
-          sucursal: document.getElementById('field-cliente-final').value.trim(), 
+          cliente: document.getElementById('field-cliente-inicial').value.trim(),
+          sucursal: document.getElementById('field-cliente-final').value.trim(),
           fecha: document.getElementById('field-fecha').value,
           entrega: document.getElementById('field-entrega').value,
-          
-          // Se envía la validación de si es OT u OTB para tu backend
           tipoOrden: document.getElementById('field-tipo-orden').value,
-          
           solicitante: document.getElementById('field-solicitante').value.trim(),
           rfc: document.getElementById('field-rfc').value.trim(),
           telefono: document.getElementById('field-tel').value.trim(),
@@ -684,7 +680,7 @@
           responsable: document.getElementById('field-responsable').value,
           estatus: 'NO INICIADO'
         },
-        files: [] 
+        files: []
       };
 
       if (totalBytes > MAX_BATCH_SIZE) {
@@ -771,8 +767,8 @@
         else slaChip = `<span class="chip chip-green">En tiempo (${dias}d)</span>`;
       }
 
-      const cInicial = r.clienteInicial || r.cliente || '-';
-      const cFinal = r.clienteFinal || r.sucursal || '-';
+      const cInicial = r.cliente || '-';
+      const cFinal = r.sucursal || '-';
 
       html += `<tr>
         <td><strong>${r.numInforme || '-'}</strong><br><span style="color:var(--muted); font-size:10px;">${r.ot}</span></td>
@@ -880,10 +876,10 @@
 
   function exportarTablero() {
     if (!allTableroData || allTableroData.length === 0) { alert('No hay datos para exportar.'); return; }
-    const headers = ['Informe', 'Tipo', 'OT', 'NOM', 'Cliente Inicial', 'Cliente Final', 'Solicitante', 'RFC', 'Teléfono', 'Dirección', 'Fecha Servicio', 'Fecha Entrega', 'Responsable', 'Estatus', 'Link Drive'];
+    const headers = ['Informe', 'Tipo', 'OT', 'NOM', 'Cliente', 'Sucursal', 'Solicitante', 'RFC', 'Teléfono', 'Dirección', 'Fecha Servicio', 'Fecha Entrega', 'Responsable', 'Estatus', 'Link Drive'];
     const rows = allTableroData.map(r => [
       r.numInforme || '', r.tipoOrden || '', r.ot || '', r.nom || '',
-      r.clienteInicial || r.cliente || '', r.clienteFinal || r.sucursal || '',
+      r.cliente || '', r.sucursal || '',
       r.solicitante || '', r.rfc || '', r.telefono || '', r.direccion || '',
       r.fecha || '', r.fechaEntrega || '', r.responsable || '', r.estatus || '', r.linkDrive || ''
     ]);
