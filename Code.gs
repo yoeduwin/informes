@@ -546,7 +546,8 @@ function getConsecutivoSafe_(params) {
 
     // Buscar el máximo consecutivo GLOBAL en todos los informes DEL MISMO TIPO (OT u OTB)
     // Formato: EA-YYMM-NOM-CONS (el consecutivo siempre es el último segmento de 4 dígitos)
-    const regex = /^EA-\d{4}-[A-Za-z0-9]+-(\d{4})$/;
+    // .+ soporta NOMs con guiones como "036-1"
+    const regex = /^EA-\d{4}-.+-(\d{4})$/;
     let maxConsecutivo = 0;
 
     dataRange.forEach(row => {
