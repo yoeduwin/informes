@@ -241,14 +241,14 @@
 
   <div class="tabs-container">
     <div class="tabs">
-      <button class="tab active" onclick="changeTab('nuevo', event)">➕ Nuevo Expediente</button>
-      <button class="tab" onclick="changeTab('tablero', event)">📋 Tablero de Informes</button>
+      <button class="tab" onclick="changeTab('nuevo', event)">➕ Nuevo Expediente</button>
+      <button class="tab active" onclick="changeTab('tablero', event)">📋 Tablero de Informes</button>
     </div>
   </div>
 
   <div class="content">
     
-    <div id="section-nuevo" class="section-tab active">
+    <div id="section-nuevo" class="section-tab">
       
       <div class="ea-main-container">
         
@@ -412,7 +412,7 @@
     </div>
 
 
-    <div id="section-tablero" class="section-tab">
+    <div id="section-tablero" class="section-tab active">
       
       <div class="kpi-grid">
         <div class="kpi-card" data-metric="todos" onclick="filtrarPorMetrica('todos')">
@@ -423,13 +423,17 @@
           <div class="kpi-label">⚪ No Iniciados</div>
           <div class="kpi-value" id="kpi-no-iniciado" style="color: var(--muted);">0</div>
         </div>
-        <div class="kpi-card" data-metric="activos" onclick="filtrarPorMetrica('activos')">
+        <div class="kpi-card" data-metric="en-proceso" onclick="filtrarPorMetrica('en-proceso')">
           <div class="kpi-label">🔵 En Proceso</div>
-          <div class="kpi-value" id="kpi-activos" style="color: #3498db;">0</div>
+          <div class="kpi-value" id="kpi-en-proceso" style="color: #3498db;">0</div>
         </div>
         <div class="kpi-card" data-metric="en-tiempo" onclick="filtrarPorMetrica('en-tiempo')">
           <div class="kpi-label">🟢 En Tiempo</div>
           <div class="kpi-value" id="kpi-tiempo" style="color: #27ae60;">0</div>
+        </div>
+        <div class="kpi-card" data-metric="por-vencer" onclick="filtrarPorMetrica('por-vencer')">
+          <div class="kpi-label">🟠 Por Vencer</div>
+          <div class="kpi-value" id="kpi-por-vencer" style="color: #f39c12;">0</div>
         </div>
         <div class="kpi-card" data-metric="vencidos" onclick="filtrarPorMetrica('vencidos')">
           <div class="kpi-label">🔴 Vencidos</div>
@@ -834,14 +838,18 @@
       const eNorm = (r.estatus || 'NO INICIADO').toUpperCase();
       if(filtroMetricaActivo) {
           if(filtroMetricaActivo === 'no-iniciado' && eNorm !== 'NO INICIADO') return false;
-          if(filtroMetricaActivo === 'activos' && (eNorm === 'FINALIZADO' || eNorm === 'CANCELADO' || eNorm === 'NO INICIADO')) return false;
+          if(filtroMetricaActivo === 'en-proceso' && !(eNorm === 'EN PROCESO' || eNorm === 'PARA REVISION' || eNorm === 'PARA IMPRESION')) return false;
           if(filtroMetricaActivo === 'en-tiempo') {
             const d = calcularDiasVencimiento(r.fechaEntrega);
-            if(d === null || d < 0 || eNorm === 'FINALIZADO') return false;
+            if(d === null || d <= 7 || eNorm === 'FINALIZADO' || eNorm === 'CANCELADO') return false;
+          }
+          if(filtroMetricaActivo === 'por-vencer') {
+            const d = calcularDiasVencimiento(r.fechaEntrega);
+            if(d === null || d < 0 || d > 7 || eNorm === 'FINALIZADO' || eNorm === 'CANCELADO') return false;
           }
           if(filtroMetricaActivo === 'vencidos') {
             const d = calcularDiasVencimiento(r.fechaEntrega);
-            if(d === null || d >= 0 || eNorm === 'FINALIZADO') return false;
+            if(d === null || d >= 0 || eNorm === 'FINALIZADO' || eNorm === 'CANCELADO') return false;
           }
       }
       const matchSearch = !search || Object.values(r).join(' ').toLowerCase().includes(search);
@@ -868,21 +876,24 @@
   }
 
   function calcularKPIs(data) {
-    let noIniciado=0, activos=0, tiempo=0, vencidos=0;
+    let noIniciado=0, enProceso=0, tiempo=0, porVencer=0, vencidos=0;
     allTableroData.forEach(r => {
       const e = (r.estatus || 'NO INICIADO').toUpperCase();
       if(e === 'NO INICIADO') noIniciado++;
-      else if(e !== 'FINALIZADO' && e !== 'CANCELADO') activos++;
-      
-      const vState = calcularDiasVencimiento(r.fechaEntrega);
-      if(vState !== null && e !== 'FINALIZADO') {
-        if(vState < 0) vencidos++; else tiempo++;
+      else if(e === 'EN PROCESO' || e === 'PARA REVISION' || e === 'PARA IMPRESION') enProceso++;
+
+      const dias = calcularDiasVencimiento(r.fechaEntrega);
+      if(dias !== null && e !== 'FINALIZADO' && e !== 'CANCELADO') {
+        if(dias < 0) vencidos++;
+        else if(dias <= 7) porVencer++;
+        else tiempo++;
       }
     });
     document.getElementById('kpi-total').textContent = allTableroData.length;
     document.getElementById('kpi-no-iniciado').textContent = noIniciado;
-    document.getElementById('kpi-activos').textContent = activos;
+    document.getElementById('kpi-en-proceso').textContent = enProceso;
     document.getElementById('kpi-tiempo').textContent = tiempo;
+    document.getElementById('kpi-por-vencer').textContent = porVencer;
     document.getElementById('kpi-vencidos').textContent = vencidos;
   }
 
@@ -962,6 +973,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     cargarOrdenesDisponibles();
+    cargarTablero();
     ['filter-search', 'filter-estatus', 'filter-vencimiento'].forEach(id => { document.getElementById(id).addEventListener('change', aplicarFiltros); });
     document.getElementById('filter-search').addEventListener('input', aplicarFiltros);
   });
