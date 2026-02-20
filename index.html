@@ -453,7 +453,9 @@
             <option value="NO INICIADO">No Iniciado</option>
             <option value="EN PROCESO">En Proceso</option>
             <option value="PARA REVISION">Para Revisión</option>
+            <option value="PARA IMPRESION">Para Impresión</option>
             <option value="FINALIZADO">Finalizado</option>
+            <option value="CANCELADO">Cancelado</option>
           </select>
           <select id="filter-vencimiento">
             <option value="">Todos los Vencimientos</option>
@@ -781,8 +783,9 @@
           <select style="padding:4px;" onchange="cambiarDatoRapido('${r.ot}', 'responsable', this.value)">
             <option value="" ${!r.responsable ? 'selected' : ''}>-</option>
             <option value="EDUARDO CAMPOS" ${r.responsable==='EDUARDO CAMPOS'?'selected':''}>EDUARDO CAMPOS</option>
-            <option value="EDUWIN IVAN" ${r.responsable==='EDUWIN IVAN'?'selected':''}>EDUWIN IVAN/option>
-            <option value="MARTIN LUNA" ${r.responsable==='MARTIN LUNA'?'selected':''}'MARTIN LUNA</option>
+            <option value="EDUWIN IVAN" ${r.responsable==='EDUWIN IVAN'?'selected':''}>EDUWIN IVAN</option>
+            <option value="MARTIN LUNA" ${r.responsable==='MARTIN LUNA'?'selected':''}>MARTIN LUNA</option>
+            <option value="JIMMY AYALA" ${r.responsable==='JIMMY AYALA'?'selected':''}>JIMMY AYALA</option>
           </select>
         </td>
         <td>
@@ -790,7 +793,9 @@
             <option value="NO INICIADO" ${estatus==='NO INICIADO'?'selected':''}>No Iniciado</option>
             <option value="EN PROCESO" ${estatus==='EN PROCESO'?'selected':''}>En Proceso</option>
             <option value="PARA REVISION" ${estatus==='PARA REVISION'?'selected':''}>En Revisión</option>
+            <option value="PARA IMPRESION" ${estatus==='PARA IMPRESION'?'selected':''}>Para Impresión</option>
             <option value="FINALIZADO" ${estatus==='FINALIZADO'?'selected':''}>Finalizado</option>
+            <option value="CANCELADO" ${estatus==='CANCELADO'?'selected':''}>Cancelado</option>
           </select>
         </td>
         <td>${slaChip}</td>
@@ -806,16 +811,36 @@
   function aplicarFiltros() {
     const search = document.getElementById('filter-search').value.toLowerCase();
     const estatus = document.getElementById('filter-estatus').value;
-    
+    const vencimiento = document.getElementById('filter-vencimiento').value;
+
     let filtered = allTableroData.filter(r => {
       const eNorm = (r.estatus || 'NO INICIADO').toUpperCase();
       if(filtroMetricaActivo) {
           if(filtroMetricaActivo === 'no-iniciado' && eNorm !== 'NO INICIADO') return false;
           if(filtroMetricaActivo === 'activos' && (eNorm === 'FINALIZADO' || eNorm === 'CANCELADO' || eNorm === 'NO INICIADO')) return false;
+          if(filtroMetricaActivo === 'en-tiempo') {
+            const d = calcularDiasVencimiento(r.fechaEntrega);
+            if(d === null || d < 0 || eNorm === 'FINALIZADO') return false;
+          }
+          if(filtroMetricaActivo === 'vencidos') {
+            const d = calcularDiasVencimiento(r.fechaEntrega);
+            if(d === null || d >= 0 || eNorm === 'FINALIZADO') return false;
+          }
       }
       const matchSearch = !search || Object.values(r).join(' ').toLowerCase().includes(search);
       const matchEstatus = !estatus || eNorm === estatus;
-      return matchSearch && matchEstatus;
+
+      let matchVencimiento = true;
+      if(vencimiento && eNorm !== 'FINALIZADO') {
+        const dias = calcularDiasVencimiento(r.fechaEntrega);
+        if(vencimiento === 'vencidos') matchVencimiento = dias !== null && dias < 0;
+        else if(vencimiento === 'proximos') matchVencimiento = dias !== null && dias >= 0 && dias <= 7;
+        else if(vencimiento === 'en-plazo') matchVencimiento = dias !== null && dias > 7;
+      } else if(vencimiento && eNorm === 'FINALIZADO') {
+        matchVencimiento = false;
+      }
+
+      return matchSearch && matchEstatus && matchVencimiento;
     });
     renderTablero(filtered);
   }
@@ -844,7 +869,51 @@
     document.getElementById('kpi-vencidos').textContent = vencidos;
   }
 
-  // 5. UTILIDADES Y VALIDACIÓN
+  // 5. FUNCIONES DEL TABLERO
+  function limpiarFiltros() {
+    document.getElementById('filter-search').value = '';
+    document.getElementById('filter-estatus').value = '';
+    document.getElementById('filter-vencimiento').value = '';
+    filtroMetricaActivo = null;
+    aplicarFiltros();
+  }
+
+  function exportarTablero() {
+    if (!allTableroData || allTableroData.length === 0) { alert('No hay datos para exportar.'); return; }
+    const headers = ['Informe', 'Tipo', 'OT', 'NOM', 'Cliente Inicial', 'Cliente Final', 'Solicitante', 'RFC', 'Teléfono', 'Dirección', 'Fecha Servicio', 'Fecha Entrega', 'Responsable', 'Estatus', 'Link Drive'];
+    const rows = allTableroData.map(r => [
+      r.numInforme || '', r.tipoOrden || '', r.ot || '', r.nom || '',
+      r.clienteInicial || r.cliente || '', r.clienteFinal || r.sucursal || '',
+      r.solicitante || '', r.rfc || '', r.telefono || '', r.direccion || '',
+      r.fecha || '', r.fechaEntrega || '', r.responsable || '', r.estatus || '', r.linkDrive || ''
+    ]);
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Informes');
+    XLSX.writeFile(wb, `Tablero_Informes_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+
+  function cambiarDatoRapido(ot, campo, valor) {
+    if (!ot || !valor) return;
+    const action = campo === 'estatus' ? 'updateEstatus' : 'updateResponsable';
+    const payload = { action };
+    payload.ot = ot;
+    if (campo === 'estatus') payload.estatus = valor;
+    else payload.responsable = valor;
+
+    fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    }).then(() => {
+      const item = allTableroData.find(r => String(r.ot).toUpperCase() === ot.toUpperCase());
+      if (item) item[campo] = valor;
+      aplicarFiltros();
+    }).catch(err => alert('Error al actualizar: ' + err.message));
+  }
+
+  // 6. UTILIDADES Y VALIDACIÓN
   function validarProgreso() {
     const tienePerfil = perfilDataFile !== null;
     const card2 = document.getElementById('card-paso2');
